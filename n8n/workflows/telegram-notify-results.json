@@ -1,0 +1,143 @@
+{
+  "name": "khuoqtd — Notify Telegram after YouTube result",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron-check",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://publisher:8000/internal/v1/notifications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "fetch-results",
+      "name": "Get completed jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pending = $input.first().json.notifications || [];\nreturn pending.map(notification => ({json: notification}));"
+      },
+      "id": "split-results",
+      "name": "Split notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.status === 'submitted' ? 'YouTube đã nhận video: ' + ($json.remote_url || 'Kiểm tra YouTube Studio') : 'Publisher: ' + $json.status + '. ' + ($json.error || 'Cần kiểm tra trực tiếp trên nền tảng trước khi thử lại.') }}",
+        "additionalFields": {}
+      },
+      "id": "send-result",
+      "name": "Telegram — result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://publisher:8000/internal/v1/tiktok/' + $('Split notifications').item.json.id + '/ack' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "ack-result",
+      "name": "Acknowledge notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Get completed jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get completed jobs": {
+      "main": [
+        [
+          {
+            "node": "Split notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split notifications": {
+      "main": [
+        [
+          {
+            "node": "Telegram — result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram — result": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

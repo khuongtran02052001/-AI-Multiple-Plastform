@@ -5,3 +5,4 @@ psycopg[binary]
 cryptography
 httpx[socks]
 python-multipart
+yt-dlp==2026.10.26

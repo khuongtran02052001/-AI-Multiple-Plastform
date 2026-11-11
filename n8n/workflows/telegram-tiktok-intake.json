@@ -1,0 +1,114 @@
+{
+  "name": "khuoqtd — Telegram TikTok intake (private YouTube)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "tg-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        240
+      ],
+      "webhookId": "69ea72b5-a801-41e8-a9b4-b4e0e40441a6"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const update = $input.first().json;\nconst message = update.message;\nconst allowedChatId = 'REPLACE_WITH_ALLOWED_TELEGRAM_CHAT_ID';\nconst allowedUserId = 'REPLACE_WITH_ALLOWED_TELEGRAM_USER_ID';\nif (!message || String(message.chat?.id) !== allowedChatId ||\n    String(message.from?.id) !== allowedUserId) return [];\nconst text = String(message.text || '').trim();\nif (!text.startsWith('/publish ')) return [];\nconst url = text.slice('/publish '.length).trim().split(/\\s+/)[0]?.replace(/[,.!?]+$/, '');\nif (!url || !/^https:\\/\\/(?:www\\.|m\\.|vm\\.|vt\\.)?tiktok\\.com\\//i.test(url)) return [];\n// The /publish command is the authorized operator's declaration that they have\n// the rights to download and republish this video. The Publisher also validates.\nreturn [{\n  json: {\n    request_key: 'tg_' + String(message.chat.id).replace('-', 'n') +\n                 '_' + String(message.message_id) + '_publisher_v1',\n    telegram_chat_id: String(message.chat.id),\n    source_url: url,\n    title: 'TikTok ' + String(message.message_id),\n    description: '',\n    made_for_kids: false,\n    rights_confirmed: true\n  }\n}];"
+      },
+      "id": "validate-tg",
+      "name": "Validate publish command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://publisher:8000/internal/v1/tiktok",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "submit-video",
+      "name": "Submit private upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Validate publish command').item.json.telegram_chat_id }}",
+        "text": "={{ 'Publisher đã nhận yêu cầu. Mã công việc: ' + $json.id + '. Trạng thái: ' + $json.status + ($json.deduplicated ? ' (yêu cầu trùng đã được gộp).' : '.') }}",
+        "additionalFields": {}
+      },
+      "id": "ack-tg",
+      "name": "Telegram — confirm receipt",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate publish command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate publish command": {
+      "main": [
+        [
+          {
+            "node": "Submit private upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit private upload": {
+      "main": [
+        [
+          {
+            "node": "Telegram — confirm receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -1,6 +1,6 @@
 # Telegram → TikTok link → YouTube: staged integration
 
-Status: **target architecture only; not implemented, deployed, or live-tested**.
+Status: **implementation added to the repository, disabled by default. VPS deployment and live social API testing are pending.** See [the deployment runbook](TELEGRAM_N8N_DEPLOYMENT.md).
 
 ## Boundaries
 
@@ -22,7 +22,7 @@ Do not automate downloading or reposting another person's material without permi
 6. **Status** is polled by a read-only internal API or delivered via a signed webhook. Do not equate a YouTube upload response with full video processing.
 7. **Telegram** reports submitted video ID/URL, API rejection, and `unknown` results requiring manual reconciliation. Never auto-retry a job after an uncertain YouTube response.
 
-**Neither the internal job API nor the TikTok adapter, n8n workflow or Telegram bot is currently implemented in this repository.** Building an n8n flow alone cannot turn this architecture into an end-to-end working product.
+**The private ingestion API, TikTok adapter and two inactive n8n templates are now in this repository.** Real Google OAuth, TikTok retrieval and Telegram delivery still require VPS setup and acceptance tests.
 
 ## Authentication and trust
 

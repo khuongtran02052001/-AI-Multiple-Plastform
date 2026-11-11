@@ -73,6 +73,31 @@ CREATE TABLE IF NOT EXISTS sp_posts (
 	FOREIGN KEY(media_id) REFERENCES sp_media (id)
 );
 
+-- One idempotent import request per Telegram/n8n message; video files remain on VPS.
+CREATE TABLE IF NOT EXISTS sp_ingests (
+    id VARCHAR(36) PRIMARY KEY,
+    request_key VARCHAR(100) NOT NULL UNIQUE,
+    telegram_chat_id VARCHAR(32) NOT NULL,
+    notified_at FLOAT,
+    source_url TEXT NOT NULL,
+    account_id VARCHAR(36) NOT NULL REFERENCES sp_accounts(id),
+    title VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    made_for_kids BOOLEAN NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    scheduled_at FLOAT NOT NULL,
+    created_at FLOAT NOT NULL,
+    updated_at FLOAT NOT NULL,
+    post_id VARCHAR(36),
+    error TEXT,
+    lease_until FLOAT
+);
+
+CREATE INDEX IF NOT EXISTS sp_ingests_due_idx
+    ON sp_ingests (status, created_at);
+ALTER TABLE public.sp_ingests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.sp_ingests FROM PUBLIC, anon, authenticated;
+
 ALTER TABLE public.sp_accounts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.sp_accounts FROM PUBLIC, anon, authenticated;

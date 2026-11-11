@@ -1,0 +1,17 @@
+'use strict';
+document.getElementById('logout').hidden=true;
+document.getElementById('queue-button').disabled=true;
+document.getElementById('queue-button').title='Cần backend VPS để đăng thật';
+document.getElementById('queue-button').textContent='Đăng thật: chờ VPS';
+document.getElementById('schedule').disabled=true;
+document.getElementById('schedule').title='Hẹn giờ chỉ chạy trên backend VPS';
+document.getElementById('upload-limit').textContent='MP4 · chỉ đọc tại máy bạn';
+document.querySelector('.publish-note').textContent='Bản demo chỉ lưu nháp trong trình duyệt. Không đăng lên YouTube hoặc Facebook.';
+document.getElementById('timezone-label').textContent='Hẹn giờ chưa hoạt động trong bản demo.';
+const banner=document.createElement('div');banner.className='demo-bar';
+const copy=document.createElement('div');const title=document.createElement('strong');title.textContent='BẢN TRẢI NGHIỆM';
+const detail=document.createElement('span');detail.textContent='Kênh mẫu · lưu nháp trên trình duyệt · video không tải lên server · chưa đăng thật';copy.append(title,detail);
+const buttons=document.createElement('div');buttons.className='demo-actions';
+const exportButton=document.createElement('button');exportButton.className='text-button';exportButton.textContent='Xuất bản nháp';exportButton.onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(window.KhuoqtdPreview.exportDrafts(),null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='khuoqtd-drafts.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+const resetButton=document.createElement('button');resetButton.className='text-button';resetButton.textContent='Xóa dữ liệu demo';resetButton.onclick=()=>{if(confirm('Xóa các bản nháp demo chỉ lưu trong trình duyệt này?')){window.KhuoqtdPreview.reset();location.reload();}};
+buttons.append(exportButton,resetButton);banner.append(copy,buttons);document.querySelector('.main-content').prepend(banner);

@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+data/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+node_modules/
+public/
+.preview.env
+
+# Hosted preview identity/build output stay outside the public source repository.
+.openai/
+.vercel/
+dist/

@@ -1,0 +1,13 @@
+{
+    email {$ACME_EMAIL}
+}
+{$APP_DOMAIN} {
+    request_body {
+        max_size 252MB
+    }
+    reverse_proxy publisher:8000 {
+        transport http {
+            response_header_timeout 180s
+        }
+    }
+}

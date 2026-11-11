@@ -31,8 +31,7 @@ def rotate_admin():
     if not target.is_file():
         raise SystemExit('.env is missing. Run setup before rotating the password.')
     old = target.read_text()
-    matches = list(re.finditer(r'^ADMIN_PASSWORD_HASH=.*
-, old, flags=re.MULTILINE))
+    matches = list(re.finditer('^ADMIN_PASSWORD_HASH=.*', old, flags=re.MULTILINE))
     if len(matches) != 1:
         raise SystemExit('Expected exactly one ADMIN_PASSWORD_HASH line in .env.')
     password = getpass.getpass('New admin password (at least 16 characters): ')

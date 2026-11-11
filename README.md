@@ -2,6 +2,8 @@
 
 Công cụ xuất bản riêng chạy trên VPS, kết nối API chính thức của **YouTube** và **Facebook Pages**. Không dùng Upload-Post, n8n, cookie hoặc antidetect browser.
 
+Hướng dẫn production theo thư mục `/root/Khuong/khuoqtd-publisher`: [deploy/PRODUCTION.md](deploy/PRODUCTION.md). Có script kiểm tra/khởi động riêng, không dừng dịch vụ VPS khác. Supabase API key không thay thế chuỗi kết nối PostgreSQL; SQL khởi tạo nằm tại [deploy/supabase-bootstrap.sql](deploy/supabase-bootstrap.sql).
+
 ## Deploy bản trải nghiệm trên Vercel
 
 Import repo GitHub này trong Vercel, chọn Framework **Other**. Cấu hình đã nằm trong `vercel.json`: Build Command `python3 tools/build_preview.py`, Output Directory `public`, Install Command để trống. Bản trải nghiệm không cần biến môi trường hoặc kết nối Supabase.

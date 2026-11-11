@@ -6,6 +6,8 @@ services:
     env_file: .env
     environment:
       DATA_DIR: /app/data
+      # Production must not silently start with the SQLite example URL.
+      REQUIRE_POSTGRES: "true"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

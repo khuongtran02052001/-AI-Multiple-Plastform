@@ -77,6 +77,20 @@ Cách giữ nguyên cổng 80/443 và proxy hiện có là nối Caddy vào **c�
 
 Không deploy lại bằng `--https` khi cổng 80/443 đã do Caddy hiện tại sử dụng. Không áp dụng IP gateway hoặc tên network giả định nếu chưa kiểm tra trên VPS.
 
+## Xoay mật khẩu quản trị đã lộ
+
+Mật khẩu quản trị đã xuất hiện trong nội dung chat/báo cáo phải được xem là đã lộ. **Không dùng lại.** Trên VPS, sau khi đã sao lưu an toàn `.env`, chạy công cụ tương tác sau; công cụ không in mật khẩu, giữ nguyên `ENCRYPTION_KEY` và URL database:
+
+```bash
+cd /root/Khuong/khuoqtd-publisher
+docker build -t khuoqtd-publisher .
+docker run --rm -it -v "$PWD:/work" -w /work khuoqtd-publisher \
+  python -m app.setup rotate-admin
+docker compose -p khuoqtd-publisher up -d --force-recreate publisher
+```
+
+Sau đó thu hồi các phiên quản trị hiện có bằng cách xóa các dòng trong bảng `public.sp_sessions` **chỉ trên đúng Supabase project production** (ví dụ qua SQL Editor: `TRUNCATE TABLE public.sp_sessions;`). Việc đổi hash **không tự thu hồi cookie phiên** đã phát hành. Không quay vòng `ENCRYPTION_KEY` vì sẽ làm token OAuth hiện có không giải mã được.
+
 ## 4. Kết nối và thử thật
 
 Nhập OAuth Google/Meta trong `.env`; callback tương ứng là `/oauth/youtube/callback` và `/oauth/facebook/callback` trên BASE_URL. Khởi động lại riêng container publisher sau khi đổi env, đăng nhập web rồi cấp quyền kênh/Page. Dùng YouTube riêng tư cho lần thử đầu; kiểm tra ID trả về và nội dung trên nền tảng. Không có OAuth credentials thì chưa kiểm thử đăng thật được.

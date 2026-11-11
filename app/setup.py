@@ -14,7 +14,8 @@ def main():
         raise SystemExit('Password too short or confirmation mismatch.')
     content = Path('.env.example').read_text()
     content = content.replace('ENCRYPTION_KEY=', f'ENCRYPTION_KEY={Fernet.generate_key().decode()}')
-    content = content.replace('ADMIN_PASSWORD_HASH=', f'ADMIN_PASSWORD_HASH={password_hash(password)}')
+    # Compose interpolates unquoted $ in env files; single quotes keep the scrypt hash intact.
+    content = content.replace('ADMIN_PASSWORD_HASH=', f"ADMIN_PASSWORD_HASH='{password_hash(password)}'")
     target.touch(mode=0o600)
     target.write_text(content)
     print('Created .env. Configure DATABASE_URL, BASE_URL and provider credentials before deployment.')

@@ -43,18 +43,19 @@ case "$action" in
     [[ -f .env ]] || die 'Run prepare first.'
     docker compose -p "$PROJECT" config --quiet
     profiles=()
-    ports=(8000)
     if [[ ${2:-} == --https ]]; then
       profiles=(--profile https)
-      ports+=(80 443)
+      # Avoid attempting to take over the existing shared reverse proxy.
+      for port in 80 443; do
+        if ss -ltnH "sport = :$port" | read -r _; then
+          die "Port $port is occupied by another service. Use the existing Caddy reverse proxy instead."
+        fi
+      done
     elif [[ -n ${2:-} ]]; then
       die 'Unknown option; only --https is supported.'
     fi
-    for port in "${ports[@]}"; do
-      if ss -ltnH "sport = :$port" | read -r _; then
-        die "Port $port is already occupied. No existing service was stopped. Use the existing reverse proxy or manage this project's existing containers explicitly."
-      fi
-    done
+    # Compose can recreate this project's existing publisher container. Let Docker
+    # report port conflicts; do not falsely reject the publisher's own bound port.
     docker compose -p "$PROJECT" "${profiles[@]}" up -d --build
     printf '%s\n' 'Started this project. Run status and check /healthz through the configured HTTPS domain.'
     ;;

@@ -63,7 +63,33 @@ Nếu n8n hoặc proxy khác đã dùng 80/443, chỉ khởi động backend:
 bash deploy/vps.sh start
 ```
 
-Sau đó thêm riêng host của công cụ vào reverse proxy hiện có, trỏ tới `127.0.0.1:8000`; không dừng hoặc thay cấu hình host n8n. Script từ chối cổng đã bị chiếm để tránh làm gián đoạn dịch vụ khác.
+Cổng host mặc định cho VPS dùng chung là `127.0.0.1:8090`, được điều chỉnh bằng `PUBLISHER_PORT=8090` trong `.env`. Cổng **bên trong container** vẫn là 8000. `bash deploy/vps.sh start` có thể cập nhật container của chính project mà không tự dừng n8n/pett-chatbot. Docker sẽ báo lỗi nếu cổng host thực sự xung đột.
+
+**Quan trọng:** `n8n-caddy-1` là một container. Container đó không thể truy cập ứng dụng qua `127.0.0.1:8090` của host; địa chỉ `172.18.0.1:8090` cũng không phải lối vào đáng tin cậy khi cổng chỉ bind ở loopback host.
+
+Cách giữ nguyên cổng 80/443 và proxy hiện có là nối Caddy vào **cùng mạng Docker** với Publisher:
+
+1. Kiểm tra bằng `docker network ls --filter label=com.docker.compose.project=khuoqtd-publisher` và `docker inspect n8n-caddy-1` để xác định chính xác mạng và container.
+2. Kết nối Caddy vào network của Publisher bằng `docker network connect <PUBLISHER_NETWORK> n8n-caddy-1` (chỉ khi chưa kết nối).
+3. Trên host mới, thêm **riêng** block Caddy cho domain của Publisher với upstream `reverse_proxy publisher:8000`; không sửa các host đang hoạt động.
+4. Kiểm tra và reload Caddy bằng cấu hình/mount thực tế. Xác minh HTTPS và `/healthz`.
+5. **Bắt buộc cấu hình mạng kết nối chung trong Compose của Caddy/n8n để tồn tại sau khi container được tạo lại.** Lệnh `docker network connect` đơn lẻ là thay đổi runtime, không phải giải pháp bền vững.
+
+Không deploy lại bằng `--https` khi cổng 80/443 đã do Caddy hiện tại sử dụng. Không áp dụng IP gateway hoặc tên network giả định nếu chưa kiểm tra trên VPS.
+
+## Xoay mật khẩu quản trị đã lộ
+
+Mật khẩu quản trị đã xuất hiện trong nội dung chat/báo cáo phải được xem là đã lộ. **Không dùng lại.** Trên VPS, sau khi đã sao lưu an toàn `.env`, chạy công cụ tương tác sau; công cụ không in mật khẩu, giữ nguyên `ENCRYPTION_KEY` và URL database:
+
+```bash
+cd /root/Khuong/khuoqtd-publisher
+docker build -t khuoqtd-publisher .
+docker run --rm -it -v "$PWD:/work" -w /work khuoqtd-publisher \
+  python -m app.setup rotate-admin
+docker compose -p khuoqtd-publisher up -d --force-recreate publisher
+```
+
+Sau đó thu hồi các phiên quản trị hiện có bằng cách xóa các dòng trong bảng `public.sp_sessions` **chỉ trên đúng Supabase project production** (ví dụ qua SQL Editor: `TRUNCATE TABLE public.sp_sessions;`). Việc đổi hash **không tự thu hồi cookie phiên** đã phát hành. Không quay vòng `ENCRYPTION_KEY` vì sẽ làm token OAuth hiện có không giải mã được.
 
 ## 4. Kết nối và thử thật
 

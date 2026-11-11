@@ -20,6 +20,7 @@ from app.db import make_engine, initialize, accounts, media, posts, sessions, oa
 from app.security import Vault, verify_password, digest
 from app.providers import Providers, PublishError
 from app.worker import loop
+from app.automation import register_automation
 
 
 class Login(BaseModel):
@@ -70,6 +71,7 @@ def create_app(config=None, engine=None, providers=None):
     app = FastAPI(title='khuoqtd Publisher', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.db = db
     app.state.vault = vault
+    register_automation(app, db, s)
 
     def require_session(request):
         raw = request.cookies.get('sp_session', '')

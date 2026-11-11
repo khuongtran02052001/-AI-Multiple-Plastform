@@ -5,6 +5,8 @@
     request_body {
         max_size 252MB
     }
+    @internal path /internal/*
+    respond @internal 404
     reverse_proxy publisher:8000 {
         transport http {
             response_header_timeout 180s

@@ -9,7 +9,7 @@ This runbook is for the single-administrator YouTube + Facebook Pages release. D
 - A DNS A/AAAA record for your HTTPS subdomain. Ports 80 and 443 need to reach the TLS reverse proxy.
 - One administrator password (at least 16 characters), one Fernet encryption key, and dedicated OAuth credentials for Google/Meta.
 
-**No separate Redis, n8n, or Upload-Post service is required.** The single FastAPI process embeds the worker; Supabase is the persistent queue and metadata store.
+**The base Publisher web app does not require Redis, n8n or Upload-Post.** The optional Telegram/TikTok automation **does** use the existing n8n instance as orchestration, while Publisher owns video ingestion and posting. See [Telegram integration](TELEGRAM_N8N_DEPLOYMENT.md).
 
 ## 2. Prepare VPS
 

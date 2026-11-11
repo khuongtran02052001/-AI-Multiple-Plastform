@@ -2,7 +2,7 @@
 
 Công cụ xuất bản riêng chạy trên VPS, kết nối API chính thức của **YouTube** và **Facebook Pages**. Không dùng Upload-Post, cookie hoặc antidetect browser để đăng nội dung. n8n có thể điều phối luồng Telegram riêng, nhưng việc đăng YouTube vẫn do Publisher gọi API chính thức.
 
-Định hướng luồng Telegram → TikTok → YouTube → Telegram: [docs/TELEGRAM_N8N_TARGET.md](docs/TELEGRAM_N8N_TARGET.md). Đây là bản thiết kế tích hợp, **chưa được triển khai thành workflow chạy thật**.
+Tích hợp tùy chọn Telegram → n8n → link TikTok → YouTube → thông báo Telegram đã có mã API, worker và hai mẫu workflow n8n nhưng **mặc định tắt và chưa kiểm thử với nền tảng thật**: [hướng dẫn tích hợp](docs/TELEGRAM_N8N_DEPLOYMENT.md).
 
 Hướng dẫn production theo thư mục `/root/Khuong/khuoqtd-publisher`: [deploy/PRODUCTION.md](deploy/PRODUCTION.md). Có script kiểm tra/khởi động riêng, không dừng dịch vụ VPS khác. Supabase API key không thay thế chuỗi kết nối PostgreSQL; SQL khởi tạo nằm tại [deploy/supabase-bootstrap.sql](deploy/supabase-bootstrap.sql).
 
@@ -29,7 +29,7 @@ Import repo GitHub này trong Vercel, chọn Framework **Other**. Cấu hình đ
 - Video MP4 lưu trên VPS, không đẩy vào Supabase Storage. Database chỉ lưu metadata và token mã hóa.
 - Dọn video sau 7 ngày nếu không còn bài nháp/chờ/không rõ kết quả cần video đó.
 
-**Đây là bản dùng riêng cho một quản trị viên, chưa phải SaaS nhiều người dùng.** Chưa có TikTok, LinkedIn, tải video từ URL, bình luận, tạo nội dung AI hoặc analytics.
+**Đây là bản dùng riêng cho một quản trị viên, chưa phải SaaS nhiều người dùng.** Chưa có đăng bài lên TikTok, LinkedIn, bình luận, tạo nội dung AI hoặc analytics. Bộ nạp URL TikTok dành cho nội dung được phép sử dụng là tính năng tùy chọn chưa triển khai production.
 
 ## Cài trên VPS bằng Docker
 

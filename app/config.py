@@ -21,6 +21,9 @@ class Settings:
     retention_days: int = int(os.getenv('MEDIA_RETENTION_DAYS', '7'))
     worker_enabled: bool = os.getenv('WORKER_ENABLED', 'true').lower() == 'true'
     require_postgres: bool = os.getenv('REQUIRE_POSTGRES', 'false').lower() == 'true'
+    automation_token: str = os.getenv('AUTOMATION_TOKEN', '')
+    automation_youtube_account_id: str = os.getenv('AUTOMATION_YOUTUBE_ACCOUNT_ID', '')
+    tiktok_ingest_enabled: bool = os.getenv('TIKTOK_INGEST_ENABLED', 'false').lower() == 'true'
 
     @property
     def secure(self):
@@ -47,6 +50,10 @@ class Settings:
             db = make_url(self.database_url)
             if db.host not in ('localhost', '127.0.0.1', '::1') and db.query.get('sslmode') not in ('require', 'verify-ca', 'verify-full'):
                 raise ValueError('Remote PostgreSQL requires sslmode=require or verify-full.')
+        if self.tiktok_ingest_enabled and (
+            len(self.automation_token) < 32 or not self.automation_youtube_account_id
+        ):
+            raise ValueError('TikTok automation requires a 32+ character token and target YouTube account ID.')
         if not 1 <= self.max_upload_mb <= 2048 or self.max_storage_mb < self.max_upload_mb or self.retention_days < 1:
             raise ValueError('Invalid upload, storage or retention limit.')
         self.data_dir.mkdir(parents=True, exist_ok=True)

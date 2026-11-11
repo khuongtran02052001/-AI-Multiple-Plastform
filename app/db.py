@@ -47,6 +47,27 @@ posts = Table('sp_posts', metadata,
     UniqueConstraint('batch_key', 'account_id'))
 Index('sp_posts_due_idx', posts.c.status, posts.c.scheduled_at)
 
+ingests = Table('sp_ingests', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('request_key', String(100), nullable=False, unique=True),
+    Column('telegram_chat_id', String(32), nullable=False),
+    Column('notified_at', Float),
+    Column('source_url', Text, nullable=False),
+    Column('account_id', String(36), ForeignKey('sp_accounts.id'), nullable=False),
+    Column('title', String(100), nullable=False),
+    Column('description', Text, nullable=False),
+    Column('made_for_kids', Boolean, nullable=False),
+    Column('status', String(30), nullable=False),
+    Column('scheduled_at', Float, nullable=False),
+    Column('created_at', Float, nullable=False),
+    Column('updated_at', Float, nullable=False),
+    Column('post_id', String(36)),
+    Column('error', Text),
+    Column('lease_until', Float))
+Index('sp_ingests_due_idx', ingests.c.status, ingests.c.created_at)
+
+
+
 sessions = Table('sp_sessions', metadata,
     Column('id', String(64), primary_key=True),
     Column('csrf', String(64), nullable=False),
@@ -100,3 +121,20 @@ def claim_post(engine):
             posts.c.status == 'queued').values(status='posting',
             updated_at=time.time(), lease_until=time.time() + 180))
         return row.id if result.rowcount == 1 else None
+
+def claim_ingest(engine):
+    """Atomically acquire one pending ingestion. Only the queue owner may download."""
+    from sqlalchemy import select, update
+    with engine.begin() as c:
+        query = select(ingests.c.id).where(ingests.c.status == 'pending').order_by(
+            ingests.c.created_at).limit(1)
+        if engine.dialect.name == 'postgresql':
+            query = query.with_for_update(skip_locked=True)
+        row = c.execute(query).first()
+        if not row:
+            return None
+        now = time.time()
+        changed = c.execute(update(ingests).where(
+            ingests.c.id == row.id, ingests.c.status == 'pending'
+        ).values(status='downloading', updated_at=now, lease_until=now + 300))
+        return row.id if changed.rowcount == 1 else None

@@ -1,6 +1,8 @@
 # khuoqtd Publisher
 
-Công cụ xuất bản riêng chạy trên VPS, kết nối API chính thức của **YouTube** và **Facebook Pages**. Không dùng Upload-Post, n8n, cookie hoặc antidetect browser.
+Công cụ xuất bản riêng chạy trên VPS, kết nối API chính thức của **YouTube** và **Facebook Pages**. Không dùng Upload-Post, cookie hoặc antidetect browser để đăng nội dung. n8n có thể điều phối luồng Telegram riêng, nhưng việc đăng YouTube vẫn do Publisher gọi API chính thức.
+
+Định hướng luồng Telegram → TikTok → YouTube → Telegram: [docs/TELEGRAM_N8N_TARGET.md](docs/TELEGRAM_N8N_TARGET.md). Đây là bản thiết kế tích hợp, **chưa được triển khai thành workflow chạy thật**.
 
 Hướng dẫn production theo thư mục `/root/Khuong/khuoqtd-publisher`: [deploy/PRODUCTION.md](deploy/PRODUCTION.md). Có script kiểm tra/khởi động riêng, không dừng dịch vụ VPS khác. Supabase API key không thay thế chuỗi kết nối PostgreSQL; SQL khởi tạo nằm tại [deploy/supabase-bootstrap.sql](deploy/supabase-bootstrap.sql).
 

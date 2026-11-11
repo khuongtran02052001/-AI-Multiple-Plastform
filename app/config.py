@@ -20,6 +20,7 @@ class Settings:
     max_storage_mb: int = int(os.getenv('MAX_STORAGE_MB', '5000'))
     retention_days: int = int(os.getenv('MEDIA_RETENTION_DAYS', '7'))
     worker_enabled: bool = os.getenv('WORKER_ENABLED', 'true').lower() == 'true'
+    require_postgres: bool = os.getenv('REQUIRE_POSTGRES', 'false').lower() == 'true'
 
     @property
     def secure(self):
@@ -39,6 +40,8 @@ class Settings:
             self.database_url = self.database_url.replace('postgres://', 'postgresql+psycopg://', 1)
         elif self.database_url.startswith('postgresql://'):
             self.database_url = self.database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+        if self.require_postgres and not self.database_url.startswith('postgresql+psycopg://'):
+            raise ValueError('Production requires PostgreSQL: set DATABASE_URL to the Supabase connection string.')
         if self.database_url.startswith('postgresql'):
             from sqlalchemy.engine import make_url
             db = make_url(self.database_url)

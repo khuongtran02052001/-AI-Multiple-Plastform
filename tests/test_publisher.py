@@ -79,6 +79,25 @@ def payload(**changes):
             'title': 'My title', 'description': 'My description', 'action': 'queue', **changes}
 
 
+def test_production_refuses_sqlite_fallback(tmp_path):
+    settings = Settings(
+        database_url=f'sqlite:///{tmp_path}/test.db',
+        data_dir=tmp_path,
+        base_url='https://publisher.example.org',
+        encryption_key=Fernet.generate_key().decode(),
+        admin_password_hash=password_hash('a-strong-test-password'),
+        require_postgres=True,
+        worker_enabled=False,
+    )
+    with pytest.raises(ValueError, match='Production requires PostgreSQL'):
+        settings.validate()
+    settings.database_url = (
+        'postgresql://postgres.project:placeholder@pooler.example.org:5432/postgres?sslmode=require'
+    )
+    settings.validate()
+    assert settings.database_url.startswith('postgresql+psycopg://')
+
+
 def test_authentication_csrf_and_logout(setup):
     _, _, _, client = setup
     assert client.get('/api/posts').status_code == 401

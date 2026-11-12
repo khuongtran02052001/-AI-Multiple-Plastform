@@ -90,7 +90,7 @@ def download_tiktok_video(settings, source_url):
         command = [
             sys.executable, '-m', 'yt_dlp',
             '--ignore-config', '--no-playlist', '--no-cache-dir', '--no-progress',
-            '--no-write-info-json', '--no-write-thumbnail', '--no-write-subs',
+            '--write-info-json', '--no-write-thumbnail', '--no-write-subs',
             '--socket-timeout', '15', '--retries', '1', '--fragment-retries', '1',
             '--max-filesize', str(max_bytes), '--format', 'b[ext=mp4]/b',
             '--recode-video', 'mp4',
@@ -107,11 +107,19 @@ def download_tiktok_video(settings, source_url):
         if existing_bytes + size > settings.max_storage_mb * 1024**2:
             raise DownloadError('Dung lượng VPS vượt giới hạn.')
         duration, width, height = _probe(file)
+        metadata = {}
+        info_file = root / f'{media_id}.info.json'
+        if info_file.is_file() and info_file.stat().st_size <= 8 * 1024**2:
+            try:
+                info = json.loads(info_file.read_text(encoding='utf-8'))
+                metadata = source_metadata(info)
+            except (ValueError, OSError, TypeError):
+                pass
         succeeded = True
         return {
             'id': media_id, 'filename': f'{media_id}.mp4', 'path': str(file.resolve()),
             'size': size, 'duration': duration, 'width': width, 'height': height,
-            'created_at': time.time(),
+            'created_at': time.time(), 'source_metadata': metadata,
         }
     except subprocess.TimeoutExpired as exc:
         raise DownloadError('Quá thời gian tải video TikTok.') from exc
@@ -122,3 +130,26 @@ def download_tiktok_video(settings, source_url):
                 candidate.unlink(missing_ok=True)
         if not succeeded:
             file.unlink(missing_ok=True)
+
+
+def source_metadata(info):
+    """Keep only public publishing text, never extractor URLs/headers/cookies."""
+    if not isinstance(info, dict):
+        return {}
+    def clean(value, limit):
+        if not isinstance(value, str):
+            return ''
+        return ''.join(c for c in value if c >= ' ' or c == '\n').replace('<', '').replace('>', '').strip()[:limit]
+    description = clean(info.get('description'), 5000)
+    title = clean(info.get('title'), 100) or clean(description.split('\n')[0], 100)
+    candidates = info.get('tags') if isinstance(info.get('tags'), list) else []
+    candidates = candidates + re.findall(r'(?<!\w)#([\w]+)', description)
+    tags, seen, budget = [], set(), 0
+    for value in candidates:
+        tag = clean(value, 80).lstrip('#')
+        cost = len(tag) + (2 if ' ' in tag else 0) + 1
+        if tag and tag.casefold() not in seen and budget + cost <= 450:
+            tags.append(tag)
+            seen.add(tag.casefold())
+            budget += cost
+    return {'title': title, 'description': description, 'tags': tags}

@@ -188,3 +188,50 @@ def test_ingest_disabled_rejects_service_calls(automation):
     cfg, _, _, client = automation
     cfg.tiktok_ingest_enabled = False
     assert client.post('/internal/v1/tiktok', json=item(), headers=headers(cfg)).status_code == 503
+
+
+def test_source_caption_tags_and_fallback(automation):
+    from app.tiktok_ingest import source_metadata
+    cfg, engine, _, client = automation
+    text = 'Học Python #Python #LapTrinh'
+    metadata = source_metadata({'title': '<Học Python>', 'description': text,
+                                'tags': ['Python', 'Python'],
+                                'http_headers': {'secret': 'never-store'}})
+    assert metadata == {'title': 'Học Python', 'description': text,
+                        'tags': ['Python', 'LapTrinh']}
+    assert source_metadata(None) == {}
+    result = client.post('/internal/v1/tiktok', json=item(title='', description=''), headers=headers(cfg))
+    assert result.status_code == 200
+    def download(settings, url):
+        path = settings.data_dir / 'media' / 'caption.mp4'
+        path.write_bytes(b'fake')
+        return {'id': 'caption-media', 'filename': path.name, 'path': str(path),
+                'size': 4, 'duration': 10, 'width': 720, 'height': 1280,
+                'created_at': time.time(), 'source_metadata': metadata}
+    assert process_one_ingest(engine, cfg, downloader=download)
+    with engine.connect() as c:
+        row = c.execute(select(posts)).mappings().one()
+        assert row['title'] == 'Học Python'
+        assert row['description'] == text
+        import json
+        assert json.loads(row['tags']) == ['Python', 'LapTrinh']
+
+
+def test_downloader_cleans_metadata_sidecar(automation, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    import app.tiktok_ingest as adapter
+    cfg, _, _, _ = automation
+    def run(command, **kwargs):
+        assert '--write-info-json' in command
+        template = command[command.index('--output') + 1]
+        Path(template.replace('%(ext)s', 'mp4')).write_bytes(b'fake')
+        Path(template.replace('%(ext)s', 'info.json')).write_text(json.dumps({
+            'title': 'Test clip', 'description': '#test', 'http_headers': {'secret': 'discard'}}))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(adapter.subprocess, 'run', run)
+    monkeypatch.setattr(adapter, '_probe', lambda path: (10, 720, 1280))
+    result = adapter.download_tiktok_video(cfg, item()['source_url'])
+    assert result['source_metadata']['title'] == 'Test clip'
+    assert not list((cfg.data_dir / 'media').glob('*.info.json'))
+    assert Path(result['path']).exists()

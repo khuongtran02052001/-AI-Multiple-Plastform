@@ -3,7 +3,7 @@
 **Status:** Implementation is committed to GitHub; it is not deployed to the VPS or tested against a real TikTok video, YouTube channel, or Telegram bot.
 
 The first release uses:
-- n8n Telegram Trigger for the `/publish <https://...tiktok.com/...>` command
+- n8n Telegram Trigger for a single TikTok URL or `/publish <https://...tiktok.com/...>` command
 - a bearer-token authenticated internal Publisher endpoint
 - the Publisher PostgreSQL ingestion queue and `yt-dlp` media adapter
 - the existing official YouTube Data API upload code
@@ -13,7 +13,7 @@ Facebook Pages remain supported by the existing browser application but are not 
 
 ## Trust and rights
 
-Only the explicitly allowlisted Telegram **chat ID and sender user ID** can submit commands. The `/publish` command is the operator's assertion that the video is owned or licensed for downloading and republication; the software cannot independently verify that assertion. Do not use this on third-party content without authorization. The adapter does not bypass login, use cookies, strip watermarks, or circumvent disabled downloads. Some links will fail because TikTok changes its delivery format or restricts download.
+Only the explicitly allowlisted Telegram **chat ID and sender user ID** can submit commands. Sending a URL or the `/publish` command is the operator's assertion that the video is owned or licensed for downloading and republication; the software cannot independently verify that assertion. Do not use this on third-party content without authorization. The adapter does not bypass login, use cookies, strip watermarks, or circumvent disabled downloads. Some links will fail because TikTok changes its delivery format or restricts download.
 
 The backend accepts HTTPS TikTok video URL patterns from `tiktok.com`, `www.tiktok.com`, `m.tiktok.com`, `vm.tiktok.com`, and `vt.tiktok.com`. It rejects userinfo, arbitrary hosts, non-default ports and non-video paths. There is still residual outbound request/redirect risk from a third-party downloader: run the importer behind appropriate outbound egress controls on a private VPS network when operating at scale.
 
@@ -68,6 +68,10 @@ Do **not** activate the workflows until the following are configured:
 5. Set the correct `AUTOMATION_YOUTUBE_ACCOUNT_ID` on Publisher. The endpoint never accepts a caller-selected destination account.
 6. Confirm all videos in this workflow are **not made for kids**. The template deliberately supplies `made_for_kids: false`; change this parameter when processing other content. YouTube compliance remains the publisher's responsibility.
 7. Activate the **Telegram intake** and **result notification** workflows only after the tests below pass.
+
+## Caption and hashtags
+
+The operator can send just one TikTok URL. Title and description are optional API overrides. When empty, the worker uses the downloaded public title/caption and extracts hashtags into YouTube tags. Caption hashtags are retained. Text is bounded to YouTube field limits; missing source text falls back to `Video TikTok`. Extractor sidecars are deleted after parsing; request headers, cookies and media URLs are not stored as publishing metadata.
 
 ## HTTP API contract
 

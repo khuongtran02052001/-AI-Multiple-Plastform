@@ -37,7 +37,9 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
       - name: Check VPS shell script syntax
-        run: bash -n deploy/vps.sh
+        run: |
+          bash -n deploy/vps.sh
+          bash -n deploy/remote-release.sh
       - name: Compile Python
         run: python -m compileall -q app tools
       - name: Check browser JavaScript

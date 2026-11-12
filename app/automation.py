@@ -23,7 +23,7 @@ class TikTokSubmission(BaseModel):
     request_key: str = Field(min_length=16, max_length=100)
     telegram_chat_id: str = Field(min_length=1, max_length=32)
     source_url: str = Field(min_length=20, max_length=1000)
-    title: str = Field(min_length=1, max_length=100)
+    title: str = Field(default='', max_length=100)
     description: str = Field(default='', max_length=5000)
     scheduled_at: datetime | None = None
     made_for_kids: bool
@@ -110,8 +110,6 @@ def register_automation(app, engine, settings):
         except DownloadError as exc:
             raise HTTPException(400, str(exc)) from exc
         title = payload.title.strip()
-        if not title:
-            raise HTTPException(400, 'Thiếu tiêu đề video.')
         if payload.scheduled_at is not None and payload.scheduled_at.tzinfo is None:
             raise HTTPException(400, 'Thời gian hẹn đăng cần có múi giờ.')
         if not settings.automation_youtube_account_id:

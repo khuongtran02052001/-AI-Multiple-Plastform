@@ -80,14 +80,17 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
         if not account['active'] or account['provider'] != 'youtube':
             raise DownloadError('Kênh YouTube đã ngắt kết nối hoặc không hợp lệ.')
         file = downloader(settings, job['source_url'])
+        source = file.pop('source_metadata', {})
+        title = job['title'].strip() or source.get('title') or 'Video TikTok'
+        description = job['description'].strip() or source.get('description', '')
         now = time.time()
         with engine.begin() as c:
             post_id = new_id()
             c.execute(media.insert().values(**file))
             c.execute(posts.insert().values(
                 id=post_id, batch_key=job['request_key'], account_id=job['account_id'],
-                media_id=file['id'], title=job['title'], description=job['description'],
-                tags='[]', privacy='private', made_for_kids=job['made_for_kids'],
+                media_id=file['id'], title=title, description=description,
+                tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy='private', made_for_kids=job['made_for_kids'],
                 shorts=file['duration'] <= 180 and file['width'] <= file['height'],
                 status='queued', scheduled_at=job['scheduled_at'], created_at=now,
                 updated_at=now))

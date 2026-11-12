@@ -4,6 +4,8 @@ Công cụ xuất bản riêng chạy trên VPS, kết nối API chính thức c
 
 Tích hợp tùy chọn Telegram → n8n → link TikTok → YouTube → thông báo Telegram đã có mã API, worker và hai mẫu workflow n8n nhưng **mặc định tắt và chưa kiểm thử với nền tảng thật**: [hướng dẫn tích hợp](docs/TELEGRAM_N8N_DEPLOYMENT.md).
 
+Để triển khai mà không cần kết nối SSH từ phiên ChatGPT, dùng [GitHub Actions thủ công](docs/VPS_GITHUB_ACTIONS.md) (cần cấp SSH key an toàn vào GitHub Secrets trên môi trường production). Không tự động sửa proxy hoặc n8n.
+
 Hướng dẫn production theo thư mục `/root/Khuong/khuoqtd-publisher`: [deploy/PRODUCTION.md](deploy/PRODUCTION.md). Có script kiểm tra/khởi động riêng, không dừng dịch vụ VPS khác. Supabase API key không thay thế chuỗi kết nối PostgreSQL; SQL khởi tạo nằm tại [deploy/supabase-bootstrap.sql](deploy/supabase-bootstrap.sql).
 
 ## Deploy bản trải nghiệm trên Vercel

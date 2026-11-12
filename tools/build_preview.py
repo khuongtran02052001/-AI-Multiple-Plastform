@@ -21,4 +21,6 @@ js=js.replace("$('queue-button').disabled=false", "$('queue-button').disabled=tr
 css=(root/'app/static/style.css').read_text()+'''\n.demo-bar{background:#eaf0df;border:1px solid #d1ddbf;border-radius:10px;padding:14px 18px;margin-bottom:25px;display:flex;align-items:center;justify-content:space-between;gap:20px}.demo-bar strong{display:block;font-size:10px;letter-spacing:1.4px;color:#456b35}.demo-bar span{display:block;font-size:11px;color:#65765a;margin-top:4px}.demo-actions{display:flex;gap:18px;flex-shrink:0}.demo-actions button{font-size:11px}#schedule{opacity:.5}@media(max-width:850px){.demo-bar{align-items:flex-start;flex-direction:column;gap:10px}.demo-actions{gap:20px}}\n'''
 (target/'static/style.css').write_text(css)
 for name in ('local-api.js','preview-ui.js'):shutil.copyfile(root/'preview'/name,target/'static'/name)
+shutil.copyfile(target/'index.html',target/'workspace.html')
+shutil.copyfile(root/'preview'/'autopost.html',target/'index.html')
 print('Built browser-local preview in public/. No backend, secrets or social publishing included.')

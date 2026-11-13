@@ -1092,17 +1092,25 @@ def create_app(config=None, engine=None, providers=None):
 
     def list_accounts(request: Request):
 
-        require_session(request)
+        session = require_session(request)
+
+        user_id = session.get('user_id')
 
         with db.connect() as c:
 
-            rows = c.execute(select(accounts.c.id, accounts.c.name, accounts.c.provider,
+            query = select(accounts.c.id, accounts.c.name, accounts.c.provider, accounts.c.external_id).where(accounts.c.active == True)
 
-                accounts.c.external_id).where(accounts.c.active == True).order_by(accounts.c.created_at)).mappings().all()
+            if user_id and session.get('role') != 'admin':
+
+                query = query.where(accounts.c.user_id == user_id)
+
+            rows = c.execute(query.order_by(accounts.c.created_at)).mappings().all()
 
         return [dict(r) for r in rows]
 
 
+
+    @app.delete('/api/accounts/{account_id}')
 
     @app.post('/api/accounts/{account_id}/disconnect')
 
@@ -1394,7 +1402,7 @@ def create_app(config=None, engine=None, providers=None):
 
                     if payload.shorts and (file['duration'] > 180 or file['width'] > file['height']):
 
-                        raise HTTPException(400, 'Chế độ Shorts cần video vuông/dọc và không quá 180 giây.')
+                        raise HTTPException(400, 'Chế độ Shorts yêu cầu video dọc/vuông và tối đa 3 phút. Hãy chọn "Video thường / dài" để đăng video này lên YouTube.')
 
             ids = []
 
@@ -1432,15 +1440,48 @@ def create_app(config=None, engine=None, providers=None):
 
     def list_posts(request: Request):
 
-        require_session(request)
+        session = require_session(request)
+
+        user_id = session.get('user_id')
 
         with db.connect() as c:
 
-            rows = c.execute(select(posts, accounts.c.name.label('account_name'), accounts.c.provider)
+            query = select(posts, accounts.c.name.label('account_name'), accounts.c.provider)\
+                .join(accounts, accounts.c.id == posts.c.account_id)
 
-                .join(accounts, accounts.c.id == posts.c.account_id).order_by(posts.c.created_at.desc()).limit(100)).mappings().all()
+            if user_id and session.get('role') != 'admin':
+
+                query = query.where(or_(posts.c.user_id == user_id, accounts.c.user_id == user_id))
+
+            rows = c.execute(query.order_by(posts.c.created_at.desc()).limit(100)).mappings().all()
 
         return [dict(row) for row in rows]
+
+
+
+    @app.delete('/api/posts/{post_id}')
+
+    def delete_post(post_id: str, request: Request):
+
+        session = mutation_auth(request)
+
+        user_id = session.get('user_id')
+
+        with db.begin() as c:
+
+            post = c.execute(select(posts).where(posts.c.id == post_id)).mappings().first()
+
+            if not post:
+
+                raise HTTPException(404, 'Bài đăng không tồn tại.')
+
+            if post.get('user_id') and post['user_id'] != user_id and session.get('role') != 'admin':
+
+                raise HTTPException(403, 'Bạn không có quyền xóa bài đăng này.')
+
+            c.execute(delete(posts).where(posts.c.id == post_id))
+
+        return {'ok': True}
 
 
 

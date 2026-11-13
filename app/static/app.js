@@ -12,7 +12,21 @@ function el(tag, cls, text) { const n=document.createElement(tag); if(cls)n.clas
 
 function icon(provider) { return el('span', `platform-icon ${provider}`, ({youtube:'▶',facebook:'f',tiktok:'♪',instagram:'◎',linkedin:'in',x:'𝕏',pinterest:'p'}[provider]||'•')); }
 
-function notice(message, error=false) { $('notice').textContent=message; $('notice').classList.toggle('error',error); $('notice').hidden=false; }
+let noticeTimer = null;
+function notice(message, error = false, duration = 4500) {
+  const n = $('notice');
+  if (!n) return;
+  if (noticeTimer) clearTimeout(noticeTimer);
+  n.replaceChildren();
+  const msg = el('span', 'notice-msg', message);
+  const btn = el('button', 'notice-close-btn', '✕');
+  btn.type = 'button';
+  btn.onclick = () => { n.hidden = true; };
+  n.append(msg, btn);
+  n.className = 'notice' + (error ? ' error' : '');
+  n.hidden = false;
+  noticeTimer = setTimeout(() => { n.hidden = true; }, error ? 6500 : duration);
+}
 
 function loggedOut() { state.csrf=''; $('workspace').hidden=true; $('login-screen').hidden=false; }
 
@@ -263,17 +277,87 @@ const disconnect=el('button','text-button','Disconnect');disconnect.type='button
   $('provider-list').replaceChildren();
 
   for(const provider of ['youtube','facebook','tiktok','instagram','linkedin','x','pinterest']) {
+    const card = el('article', 'card provider-card');
+    const body = el('div', 'provider-card-body');
+    const ready = state.config.providers?.[provider];
+    const myAccounts = state.accounts.filter(a => a.provider === provider && a.active !== false);
+    const isConnected = myAccounts.length > 0;
 
-    const card=el('article','card provider-card'),body=el('div'),ready=state.config.providers?.[provider];
+    const head = el('div', 'provider-card-head');
+    head.append(el('h2', '', platformName(provider)));
+    head.append(el('span', `pill ${isConnected ? 'positive' : 'neutral'}`, isConnected ? `● Đã kết nối (${myAccounts.length})` : (ready ? 'Khả dụng' : 'Sắp ra mắt')));
+    body.append(head);
 
-    const descriptions={youtube:'Publish videos and Shorts with privacy controls.',facebook:'Publish text and video to the Pages you manage.',tiktok:'Video publishing is not configured in this deployment.',instagram:'Connect an eligible Instagram Business account.',linkedin:'Share updates with your professional audience.',x:'Social publishing is not configured in this deployment.',pinterest:'Share ideas and videos with your boards.'};
+    if (isConnected) {
+      const chList = el('div', 'provider-connected-list');
+      for (const acc of myAccounts) {
+        const item = el('div', 'provider-connected-item');
+        const info = el('div', 'ch-info');
+        info.append(el('strong', '', acc.name), el('small', '', `${platformName(provider)} · ID: ${acc.external_id}`));
+        const discBtn = el('button', 'text-button danger-btn', 'Ngắt kết nối');
+        discBtn.type = 'button';
+        discBtn.onclick = async () => {
+          if (!confirm(`Ngắt kết nối tài khoản "${acc.name}"?`)) return;
+          discBtn.disabled = true;
+          try {
+            await api(`/api/accounts/${acc.id}`, { method: 'DELETE' });
+            await load();
+            notice(`Đã ngắt kết nối tài khoản ${acc.name}.`);
+          } catch (e) {
+            notice(e.message, true);
+            discBtn.disabled = false;
+          }
+        };
+        item.append(info, discBtn);
+        chList.append(item);
+      }
+      body.append(chList);
 
-    body.append(el('h2','',platformName(provider)),el('p','',descriptions[provider]));
-
-    const button=el('button','secondary',ready?'Connect account ↗':(['youtube','facebook'].includes(provider)?'OAuth setup required':'Coming soon'));button.disabled=!ready;button.onclick=async()=>{button.disabled=true;try{const r=await api(`/api/oauth/${provider}/start`,{method:'POST'});location.assign(r.url);}catch(e){notice(e.message,true);button.disabled=false;}};
-
-    body.append(button);if(!ready&&['youtube','facebook'].includes(provider))body.append(el('p','field-help','Add platform OAuth credentials to your private deployment to enable account linking.'));card.append(icon(provider),body);$('provider-list').append(card);
-
+      if (['youtube', 'facebook'].includes(provider)) {
+        const addMore = el('button', 'text-button add-more-btn', '＋ Kết nối thêm kênh khác');
+        addMore.type = 'button';
+        addMore.onclick = async () => {
+          addMore.disabled = true;
+          try {
+            const r = await api(`/api/oauth/${provider}/start`, { method: 'POST' });
+            location.assign(r.url);
+          } catch (e) {
+            notice(e.message, true);
+            addMore.disabled = false;
+          }
+        };
+        body.append(addMore);
+      }
+    } else {
+      const descriptions = {
+        youtube: 'Xuất bản video và Shorts kèm kiểm soát quyền riêng tư.',
+        facebook: 'Xuất bản video Reels và bài viết lên Fanpage Facebook.',
+        tiktok: 'Xuất bản video trực tiếp lên tài khoản TikTok.',
+        instagram: 'Đăng video lên Instagram Business & Reels.',
+        linkedin: 'Chia sẻ bài viết chuyên nghiệp lên trang LinkedIn.',
+        x: 'Xuất bản bài viết lên X (Twitter).',
+        pinterest: 'Ghim video lên các bảng tin Pinterest.'
+      };
+      body.append(el('p', 'provider-desc', descriptions[provider] || ''));
+      const button = el('button', 'secondary', ready ? 'Connect account ↗' : (['youtube', 'facebook'].includes(provider) ? 'Cần cấu hình OAuth' : 'Sắp ra mắt'));
+      button.disabled = !ready;
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          const r = await api(`/api/oauth/${provider}/start`, { method: 'POST' });
+          location.assign(r.url);
+        } catch (e) {
+          notice(e.message, true);
+          button.disabled = false;
+        }
+      };
+      body.append(button);
+      if (!ready && ['youtube', 'facebook'].includes(provider)) {
+        body.append(el('p', 'field-help', 'Thêm cấu hình OAuth trong file .env để kích hoạt kết nối.'));
+      }
+    }
+    card.append(icon(provider), body);
+    $('provider-list').append(card);
   }
 
   $('environment-info').replaceChildren();
@@ -398,7 +482,23 @@ function renderPosts() {
 
     }
 
-    if(post.status==='unknown')body.append(el('p','field-help','Delivery status is unclear. Check the account before creating another post; this tool will not retry automatically.'));
+    const delBtn = el('button', 'text-button delete-post-btn', '🗑️ Xóa');
+    delBtn.type = 'button';
+    delBtn.onclick = async () => {
+      if (!confirm(`Xóa bài "${post.title}" khỏi lịch sử?`)) return;
+      delBtn.disabled = true;
+      try {
+        await api(`/api/posts/${post.id}`, { method: 'DELETE' });
+        await refreshPosts();
+        notice('Đã xóa bài đăng khỏi lịch sử.');
+      } catch (e) {
+        notice(e.message, true);
+        delBtn.disabled = false;
+      }
+    };
+    actions.append(delBtn);
+
+    if(post.status==='unknown')body.append(el('p','field-help','Trạng thái xuất bản chưa rõ ràng. Kiểm tra trực tiếp trên kênh trước khi thử lại.'));
 
     body.append(actions);card.append(icon(post.provider),body,el('span',`status ${post.status}`,labels[post.status]||post.status));$('post-list').append(card);
 
@@ -660,7 +760,7 @@ if ($('btn-quick-pricing')) $('btn-quick-pricing').onclick = showPricingModal;
 
 $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'});loggedOut();}catch(e){notice(e.message,true);}};
 
-document.querySelectorAll('[data-preview]').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('[data-preview]').forEach(item=>item.classList.toggle('active',item===tab));const platform=tab.dataset.preview;$('preview-channel').textContent=platform==='youtube'?'YouTube Shorts preview':platform==='tiktok'?'TikTok preview · channel connection unavailable':'Facebook Reels preview';}));
+document.querySelectorAll('[data-preview]').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('[data-preview]').forEach(item=>item.classList.toggle('active',item===tab));const platform=tab.dataset.preview;$('preview-channel').textContent=platform==='youtube'?($('shorts')?.checked?'YouTube Shorts preview':'YouTube Video preview (16:9)'):platform==='tiktok'?'TikTok preview · channel connection unavailable':'Facebook Reels preview';}));
 
 $('ingest-button').addEventListener('click',()=>{const input=$('ingest-url');if(!input.reportValidity()||!input.value)return;notice('Link ingestion is not configured for this deployment. Upload an MP4 directly to continue.',true);});
 
@@ -679,6 +779,13 @@ async function upload(file){
     $('upload-info').textContent=`${state.media.filename} · ${(state.media.size/1024/1024).toFixed(1)} MB · ${Math.round(state.media.duration)} giây · ${state.media.width} × ${state.media.height}`;
 
     if(state.blob)URL.revokeObjectURL(state.blob);state.blob=URL.createObjectURL(file);$('video-preview').src=state.blob;$('video-preview').hidden=false;$('preview-placeholder').hidden=true;
+    if (state.media) {
+      if (state.media.width > state.media.height || state.media.duration > 180) {
+        setPublishFormat(false, true);
+      } else {
+        setPublishFormat(true, false);
+      }
+    }
 
   }catch(e){$('upload-info').textContent=e.message;notice(e.message,true);$('video-preview').hidden=true;$('preview-placeholder').hidden=false;}
 

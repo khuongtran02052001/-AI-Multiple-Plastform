@@ -779,13 +779,14 @@ async function upload(file){
     $('upload-info').textContent=`${state.media.filename} · ${(state.media.size/1024/1024).toFixed(1)} MB · ${Math.round(state.media.duration)} giây · ${state.media.width} × ${state.media.height}`;
 
     if(state.blob)URL.revokeObjectURL(state.blob);state.blob=URL.createObjectURL(file);$('video-preview').src=state.blob;$('video-preview').hidden=false;$('preview-placeholder').hidden=true;
-    if (state.media) {
+    if (state.media && typeof setPublishFormat === 'function') {
       if (state.media.width > state.media.height || state.media.duration > 180) {
         setPublishFormat(false, true);
       } else {
         setPublishFormat(true, false);
       }
     }
+
 
   }catch(e){$('upload-info').textContent=e.message;notice(e.message,true);$('video-preview').hidden=true;$('preview-placeholder').hidden=false;}
 
@@ -901,4 +902,80 @@ async function handleGoogleCredentialResponse(response) {
     $('login-error').textContent = err.message;
     notice(err.message, true);
   }
+}
+
+
+// --- Video Format and Smart Paste Helpers ---
+function setPublishFormat(isShorts, notifyUser) {
+  var box = document.getElementById('shorts');
+  var btnS = document.getElementById('fmt-shorts-btn');
+  var btnR = document.getElementById('fmt-regular-btn');
+  var tabYt = document.getElementById('preview-tab-youtube');
+  var pBox = document.getElementById('preview-placeholder');
+  var pVid = document.getElementById('video-preview');
+
+  if (box) box.checked = isShorts;
+  if (btnS && btnR) {
+    btnS.classList.toggle('active', !!isShorts);
+    btnR.classList.toggle('active', !isShorts);
+  }
+  if (tabYt) {
+    tabYt.textContent = isShorts ? 'YouTube Shorts' : 'YouTube Video (16:9)';
+  }
+  if (pBox) {
+    pBox.classList.toggle('is-shorts', !!isShorts);
+    pBox.classList.toggle('is-regular', !isShorts);
+  }
+  if (pVid) {
+    pVid.classList.toggle('is-shorts', !!isShorts);
+    pVid.classList.toggle('is-regular', !isShorts);
+  }
+  var previewTab = document.querySelector('.preview-tab.active');
+  if (previewTab && previewTab.dataset.preview === 'youtube') {
+    var pChan = document.getElementById('preview-channel');
+    if (pChan) pChan.textContent = isShorts ? 'YouTube Shorts preview' : 'YouTube Video preview (16:9)';
+  }
+  if (notifyUser) {
+    notice(isShorts 
+      ? 'Đã tự động chọn "YouTube Shorts" (video dọc ≤ 3 phút).' 
+      : 'Đã tự động chọn "Video thường / dài" (video ngang 16:9 hoặc > 3 phút).'
+    );
+  }
+}
+
+// Bind button clicks
+var btnShortsEl = document.getElementById('fmt-shorts-btn');
+if (btnShortsEl) {
+  btnShortsEl.onclick = function() { setPublishFormat(true); };
+}
+var btnRegEl = document.getElementById('fmt-regular-btn');
+if (btnRegEl) {
+  btnRegEl.onclick = function() { setPublishFormat(false); };
+}
+
+// Smart paste handler for Post Title
+var titleInputEl = document.getElementById('title');
+if (titleInputEl) {
+  titleInputEl.addEventListener('paste', function(e) {
+    e.preventDefault();
+    var clip = (e.clipboardData || window.clipboardData).getData('text') || '';
+    var clean = clip.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    var start = this.selectionStart || 0;
+    var end = this.selectionEnd || 0;
+    var oldVal = this.value;
+    var avail = 100 - (oldVal.length - (end - start));
+    var insert = clean.slice(0, Math.max(0, avail));
+    var newVal = oldVal.slice(0, start) + insert + oldVal.slice(end);
+    this.value = newVal.slice(0, 100);
+    this.selectionStart = this.selectionEnd = start + insert.length;
+    if (typeof preview === 'function') preview();
+  });
+}
+
+// Smart paste handler for Description
+var descInputEl = document.getElementById('description');
+if (descInputEl) {
+  descInputEl.addEventListener('paste', function() {
+    if (typeof preview === 'function') setTimeout(preview, 25);
+  });
 }

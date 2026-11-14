@@ -33,6 +33,25 @@ See UI_UX_REVIEW_20261114.md and PR checks for completed validation. Source audi
 - Added sp_users.role (user/admin/superadmin) with additive startup migration for legacy schemas. During the FIRST role migration only, the existing bootstrap owner and existing khuongtran227@gmail.com account receive superadmin, as explicitly authorized by the user. Restarts do not regrant demoted accounts. If that email is absent during migration, it is NOT granted automatically on later signup: an authorized operator must explicitly assign its DB role.
 - Backend admin checks now read current active DB user role; session/email/ID hardcoded grants removed. Session profile returns actual role. Frontend recognizes admin and superadmin without email grants.
 - Regression checks verify immediate demotion, restart does not regrant, and explicit superadmin restoration. Startup migration has NOT run on production or been tested against real PostgreSQL; snapshot DB before release and verify owner role after migration.
+
+## Update: Task Center Redesign & ChatGPT-style Electric Lightning Process Bar (14 Nov 2026)
+- **Task Center Cards (`app/static/app.js`, `app/static/style.css`):**
+  - Redesigned task cards with modern dark surface (`linear-gradient(180deg, #111827, #0d131f)`), crisp borders, and hover elevation.
+  - Multi-platform badges: `🔴 YouTube Shorts/Video`, `🔵 Facebook Reels/Video`, `🚀 Đa kênh (YT + FB)`.
+  - Source chips (`⚡ Telegram Bot` / `🌐 Web Studio`) and privacy chips (`🌐 Công khai`, `🔒 Riêng tư`, `🔗 Không công khai`).
+  - Distinct colored status pills: Complete (`🟢`), In Progress (`⚡`), Draft (`🟡`), Failed (`🔴`), Cancelled (`⚪`), Unknown (`⚠️`).
+  - Fixed action buttons: Created `.task-actions` flex container with dedicated gap. Separated "Video nguồn" and "Xem kết quả" into distinct styled action buttons (`🔗 Video nguồn (TikTok)` and `▶ Xem kết quả trên kênh`) alongside `✕ Hủy tác vụ` and `↻ Thử lại đăng`.
+- **ChatGPT-Style Electric Lightning Process Bar (`createLightningProgressBar`):**
+  - Interactive electric capsule card for in-progress tasks (`pending`, `downloading`, `queued`, `posting`).
+  - Pulsing electric lightning bolt icon (`⚡`) with glowing cyan/neon shadow (`@keyframes lightning-strike`).
+  - Dynamic progress track with milestone dots (`• • • •`) at 15%, 40%, 65%, 88%.
+  - Electric gradient fill bar with continuous shimmering light streak (`@keyframes electric-sweep`).
+  - Prominent glowing circular white thumb/knob at the progress head (`@keyframes head-pulse`).
+  - 4-node stepped milestone indicators: `[1. Tiếp nhận]` ➔ `[2. Tải video]` ➔ `[3. Tối ưu 9:16]` ➔ `[4. Đăng lên kênh]`.
+  - Smart auto-refresh: Polling accelerates to 4s when in-progress tasks are active.
+  - Full `prefers-reduced-motion` support.
+  - Bumped static assets in `index.html` to `v10` (`?v=20261114.v10`) for immediate browser cache invalidation.
+- **Verification:** All 39 Python unit tests passed cleanly. Deployed and verified healthy on VPS (`khuoqtd-publisher-publisher-1`).
 - Remaining work: audit every API endpoint (including OAuth disconnect), explicit role administration/audit logging, PostgreSQL quota concurrency validation, provider reconciliation, pagination. Earlier sections describing hardcoded role grants are historical and superseded by this update.
 
 ## Update: Task Center

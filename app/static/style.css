@@ -948,3 +948,272 @@
   gap: 12px;
   flex-wrap: wrap;
 }
+
+
+/* ========================================================
+   EXPANDABLE ACCORDION CHANNEL CARDS WITH SMOOTH ANIMATION
+   ======================================================== */
+.channel-picker-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin-top: 12px;
+}
+
+.channel-config-card {
+  background: #0d1421 !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer;
+  position: relative;
+}
+
+.channel-config-card:hover {
+  border-color: #334155 !important;
+  background: #111a2e !important;
+}
+
+.channel-config-card.selected {
+  border-color: #6366f1 !important;
+  background: #0f172a !important;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12) !important;
+}
+
+.channel-config-card[data-provider="youtube"].selected {
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  box-shadow: 0 4px 22px rgba(239, 68, 68, 0.16) !important;
+}
+
+.channel-config-card[data-provider="facebook"].selected {
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  box-shadow: 0 4px 22px rgba(59, 130, 246, 0.16) !important;
+}
+
+.channel-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  user-select: none;
+}
+
+.channel-check-wrap {
+  display: grid;
+  place-items: center;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+.channel-check-wrap input[type="checkbox"] {
+  width: 19px !important;
+  height: 19px !important;
+  cursor: pointer !important;
+  accent-color: #6366f1 !important;
+  margin: 0 !important;
+}
+
+.channel-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-meta strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-meta small {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.channel-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.channel-summary-badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: #1e293b;
+  color: #cbd5e1;
+  border-radius: 6px;
+  font-weight: 500;
+  border: 1px solid #334155;
+  white-space: nowrap;
+}
+
+.drawer-chevron {
+  font-size: 16px;
+  color: #94a3b8;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: inline-block;
+  line-height: 1;
+}
+
+.channel-config-card.expanded .drawer-chevron {
+  transform: rotate(180deg) !important;
+  color: #f1f5f9;
+}
+
+/* Accordion Smooth Slide-down Drawer */
+.channel-drawer {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-8px);
+  transition: max-height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.28s ease,
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              margin-top 0.25s ease !important;
+  margin-top: 0;
+}
+
+.channel-config-card.expanded .channel-drawer {
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 14px;
+  border-top: 1px solid #1e293b;
+  padding-top: 14px;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 680px) {
+  .drawer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.drawer-field label {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #cbd5e1 !important;
+  margin: 0 0 6px 0 !important;
+  display: block;
+}
+
+.channel-select {
+  background: #090d16 !important;
+  border: 1px solid #233044 !important;
+  color: #f1f5f9 !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+
+.format-toggle-group-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.format-toggle-group-inline .format-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #090d16;
+  border: 1px solid #233044;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: all 0.15s ease;
+}
+
+.format-toggle-group-inline .format-btn:hover {
+  border-color: #475569;
+  color: #ffffff;
+}
+
+.format-toggle-group-inline .format-btn.active {
+  background: #1e1b4b;
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.25);
+}
+
+.format-toggle-group-inline .format-icon {
+  font-size: 16px;
+}
+
+.format-toggle-group-inline .format-meta strong {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.format-toggle-group-inline .format-meta small {
+  display: block;
+  font-size: 9.5px;
+  color: #818cf8;
+}
+
+.fb-notice-pill {
+  padding: 9px 12px;
+  background: #131c2b;
+  border: 1px solid #1e2d42;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.fb-notice-pill strong, .fb-notice-pill span {
+  display: block;
+  font-size: 11.5px;
+}
+
+.fb-notice-pill small {
+  display: block;
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.selected-summary-box {
+  padding: 10px 14px;
+  background: #090d16;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.selected-summary-pill {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  border: 1px solid #334155;
+}
+
+.selected-summary-pill.youtube {
+  border-color: #ef444455;
+  color: #fca5a5;
+  background: #2a1518;
+}
+
+.selected-summary-pill.facebook {
+  border-color: #3b82f655;
+  color: #93c5fd;
+  background: #162438;
+}

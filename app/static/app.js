@@ -75,21 +75,44 @@ function changeView(view) {
 document.addEventListener('click',event=>{const trigger=event.target.closest('[data-view]');if(trigger)changeView(trigger.dataset.view);});
 
 function preview() {
+  if ($('title-count')) $('title-count').textContent = `${($('title') ? $('title').value.length : 0)} / 100`;
+  if ($('preview-title')) $('preview-title').textContent = ($('title') ? $('title').value : '') || 'Tiêu đề video của bạn';
+  if ($('preview-description')) $('preview-description').textContent = ($('description') ? $('description').value : '') || 'Nội dung mô tả và hashtag sẽ hiển thị tại đây.';
 
-  $('title-count').textContent=`${$('title').value.length} / 100`;
+  const checkedInputs = [...document.querySelectorAll('#channel-picker input:checked')];
+  const checkedAccounts = checkedInputs.map(n => (state.accounts || []).find(a => a.id === n.value)).filter(Boolean);
 
-  $('preview-title').textContent=$('title').value||'Your post title';
+  if ($('preview-channel')) {
+    $('preview-channel').textContent = checkedAccounts.map(a => a.name).join(' · ') || 'Chọn một kênh để bắt đầu';
+  }
 
-  $('preview-description').textContent=$('description').value||'Your caption and hashtags will appear here.';
+  // Update selected channels summary box on right sidebar
+  const summaryBox = $('selected-summary-box');
+  if (summaryBox) {
+    summaryBox.replaceChildren();
+    if (!checkedAccounts.length) {
+      summaryBox.innerHTML = '<span class="subtle" style="font-size:11px;">Chưa chọn kênh nào. Tích chọn kênh ở Bước 1 để cấu hình.</span>';
+    } else {
+      for (const a of checkedAccounts) {
+        const pill = el('span', `selected-summary-pill ${a.provider}`);
+        const sText = document.getElementById(`channel-summary-${a.id}`)?.textContent || '';
+        pill.innerHTML = `<span>${a.provider === 'youtube' ? '▶' : 'f'}</span> <strong>${a.name}</strong> <small style="opacity:0.8">(${sText})</small>`;
+        summaryBox.append(pill);
+      }
+    }
+  }
 
-  const checked=[...document.querySelectorAll('#channel-picker input:checked')].map(n=>state.accounts.find(a=>a.id===n.value)?.name).filter(Boolean);
-
-  $('preview-channel').textContent=checked.join(' · ')||'Choose a channel to get started';
-  updatePublishingSettingsUI();
-
+  // Auto switch preview tab
+  const ytAccs = checkedAccounts.filter(a => a.provider === 'youtube');
+  const fbAccs = checkedAccounts.filter(a => a.provider === 'facebook');
+  if (fbAccs.length > 0 && ytAccs.length === 0) {
+    const fbTab = document.querySelector('[data-preview="facebook"]');
+    if (fbTab && !fbTab.classList.contains('active')) fbTab.click();
+  } else if (ytAccs.length > 0) {
+    const ytTab = document.querySelector('[data-preview="youtube"]');
+    if (ytTab && !ytTab.classList.contains('active')) ytTab.click();
+  }
 }
-
-
 
 function renderQuota() {
 

@@ -1699,6 +1699,8 @@ def create_app(config=None, engine=None, providers=None):
         return PlainTextResponse("tiktok-developers-site-verification=cqeNphwcQ94DoltOcdmjS5LgQgfmyu6j")
 
     @app.api_route('/tiktok{token}.txt', methods=['GET', 'HEAD'])
+    @app.api_route('/terms/tiktok{token}.txt', methods=['GET', 'HEAD'])
+    @app.api_route('/privacy/tiktok{token}.txt', methods=['GET', 'HEAD'])
     def tiktok_verify_prefix(token: str):
         return PlainTextResponse(f"tiktok-developers-site-verification={token}")
 

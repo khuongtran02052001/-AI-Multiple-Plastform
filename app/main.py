@@ -220,14 +220,9 @@ def create_app(config=None, engine=None, providers=None):
 
 
     def is_admin_session(session: dict) -> bool:
-        user_id = session.get('user_id')
-        if session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea'):
-            return True
         with db.connect() as c:
-            u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
-            if u and (u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com') or u.get('role') == 'admin'):
-                return True
-        return False
+            u = c.execute(select(users).where(users.c.id == session.get('user_id'))).mappings().first()
+        return bool(u and u['status'] == 'active' and u['role'] in ('admin', 'superadmin'))
 
     def require_owner(session, row):
         if not row:
@@ -744,13 +739,13 @@ def create_app(config=None, engine=None, providers=None):
 
             u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
 
-        is_admin = session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea') or (u and u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com'))
+        is_admin = is_admin_session(session)
         user_info = {
             'id': user_id,
             'email': u['email'] if u else 'admin@toomi.vn',
             'name': u['name'] if u else 'Workspace Admin',
             'tier': u['tier'] if u else ('pro' if is_admin else 'free'),
-            'role': 'admin' if is_admin else 'user',
+            'role': u['role'] if u else 'user',
             'posts_limit': u['posts_limit'] if u else 999999
         }
 
@@ -1142,7 +1137,7 @@ def create_app(config=None, engine=None, providers=None):
 
             query = select(accounts.c.id, accounts.c.name, accounts.c.provider, accounts.c.external_id).where(accounts.c.active == True)
 
-            if user_id and session.get('role') != 'admin':
+            if user_id and not is_admin_session(session):
 
                 query = query.where(accounts.c.user_id == user_id)
 
@@ -1499,7 +1494,7 @@ def create_app(config=None, engine=None, providers=None):
             query = select(posts, accounts.c.name.label('account_name'), accounts.c.provider)\
                 .join(accounts, accounts.c.id == posts.c.account_id)
 
-            if user_id and session.get('role') != 'admin':
+            if user_id and not is_admin_session(session):
 
                 query = query.where(or_(posts.c.user_id == user_id, accounts.c.user_id == user_id))
 

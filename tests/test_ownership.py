@@ -9,7 +9,7 @@ def test_user_cannot_publish_to_another_owners_account(setup):
     account(engine, settings)
     with engine.begin() as c:
         owner = dict(c.execute(select(users)).mappings().first())
-        owner.update(id='unprivileged-user', email='other@example.test')
+        owner.update(id='unprivileged-user', email='other@example.test', role='user')
         c.execute(users.insert().values(**owner))
         c.execute(update(sessions).values(user_id='unprivileged-user'))
     # Draft avoids quota mutation and must still enforce destination ownership.
@@ -40,3 +40,20 @@ def test_quota_rolls_back_with_parent_transaction(setup):
         pass
     with engine.connect() as c:
         assert c.execute(select(usage_quotas)).first() is None
+
+
+def test_admin_authority_uses_current_database_role(setup):
+    settings, engine, _, client = setup
+    login(client)
+    assert client.get('/api/admin/users').status_code == 200
+    with engine.begin() as c:
+        c.execute(update(users).values(role='user'))
+    assert client.get('/api/admin/users').status_code == 403
+    # Reinitializing must not regrant authority just because the email/ID matches.
+    from app.db import initialize
+    initialize(engine, settings.admin_password_hash)
+    assert client.get('/api/admin/users').status_code == 403
+    with engine.begin() as c:
+        c.execute(update(users).values(role='superadmin'))
+    assert client.get('/api/admin/users').status_code == 200
+    assert client.get('/api/session').json()['user']['role'] == 'superadmin'

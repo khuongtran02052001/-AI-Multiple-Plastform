@@ -28,3 +28,9 @@ See UI_UX_REVIEW_20261114.md and PR checks for completed validation. Source audi
 - Existing sessions now reject missing/disabled users and sessions without user identity; no implicit owner fallback.
 - Added regression coverage for disabled sessions and quota rollback with parent transaction. All changes remain on PR #6, not production.
 - STILL OPEN: persistent admin-role migration/hardcoded admin grants, audit every API-key ingestion path for transaction consistency, real PostgreSQL concurrency tests, provider reconciliation, pagination and admin audit trail. Do not describe this as a complete security fix.
+
+## Update: persistent admin role
+- Added sp_users.role (user/admin/superadmin) with additive startup migration for legacy schemas. During the FIRST role migration only, the existing bootstrap owner and existing khuongtran227@gmail.com account receive superadmin, as explicitly authorized by the user. Restarts do not regrant demoted accounts. If that email is absent during migration, it is NOT granted automatically on later signup: an authorized operator must explicitly assign its DB role.
+- Backend admin checks now read current active DB user role; session/email/ID hardcoded grants removed. Session profile returns actual role. Frontend recognizes admin and superadmin without email grants.
+- Regression checks verify immediate demotion, restart does not regrant, and explicit superadmin restoration. Startup migration has NOT run on production or been tested against real PostgreSQL; snapshot DB before release and verify owner role after migration.
+- Remaining work: audit every API endpoint (including OAuth disconnect), explicit role administration/audit logging, PostgreSQL quota concurrency validation, provider reconciliation, pagination. Earlier sections describing hardcoded role grants are historical and superseded by this update.

@@ -1,7 +1,7 @@
 import time
 import uuid
 from sqlalchemy import (create_engine, MetaData, Table, Column, String, Text,
-                        Integer, Float, Boolean, ForeignKey, UniqueConstraint, Index, select, update)
+                        Integer, Float, Boolean, ForeignKey, UniqueConstraint, Index, select, update, inspect)
 
 metadata = MetaData()
 
@@ -11,6 +11,7 @@ users = Table('sp_users', metadata,
     Column('email', String(255), nullable=False, unique=True),
     Column('password_hash', String(255), nullable=False),
     Column('name', String(100)),
+    Column('role', String(20), nullable=False, default='user', server_default='user'),
     Column('tier', String(20), nullable=False, default='free'), # free, pro, agency
     Column('status', String(20), nullable=False, default='active'), # active, suspended
     Column('posts_limit', Integer, nullable=False, default=10), # 10 for free, 999999 for pro/agency
@@ -135,6 +136,11 @@ def new_id():
 
 
 def initialize(engine, admin_password_hash=None):
+    inspector = inspect(engine)
+    role_migration = 'sp_users' not in inspector.get_table_names() or 'role' not in {col['name'] for col in inspector.get_columns('sp_users')}
+    if 'sp_users' in inspector.get_table_names() and role_migration:
+        with engine.begin() as c:
+            c.exec_driver_sql("ALTER TABLE sp_users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
     metadata.create_all(engine)
     if engine.dialect.name == 'postgresql':
         with engine.begin() as c:
@@ -162,6 +168,7 @@ def initialize(engine, admin_password_hash=None):
                 email='admin@toomi.vn',
                 password_hash=admin_password_hash or '',
                 name='OmniPublish Administrator',
+                role='superadmin',
                 tier='agency',
                 status='active',
                 posts_limit=999999,
@@ -170,6 +177,11 @@ def initialize(engine, admin_password_hash=None):
             ))
         elif admin_password_hash and admin_row['password_hash'] != admin_password_hash:
             c.execute(update(users).where(users.c.id == admin_id).values(password_hash=admin_password_hash, updated_at=now))
+
+        # One-time conversion authorized by the owner; never regrant on every boot.
+        if role_migration:
+            c.execute(update(users).where(users.c.id == admin_id).values(role='superadmin'))
+            c.execute(update(users).where(users.c.email == 'khuongtran227@gmail.com').values(role='superadmin'))
 
         # Assign existing unassigned rows to admin owner
         for tbl in (accounts, posts, media, ingests, sessions):

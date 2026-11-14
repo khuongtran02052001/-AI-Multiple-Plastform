@@ -1079,7 +1079,7 @@ function renderUserProfile() {
   const rawName = state.user.name || (state.user.email ? state.user.email.split('@')[0] : 'bạn');
   const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
   const avatarChar = cleanName.charAt(0).toUpperCase() || 'U';
-  const isAdmin = (state.user.role === 'admin' || state.user.email === 'admin@toomi.vn' || state.user.email === 'khuongtran227@gmail.com');
+  const isAdmin = (['admin', 'superadmin'].includes(state.user.role));
   const isPro = (state.user.tier === 'pro' || state.user.tier === 'agency' || (state.user.posts_limit && state.user.posts_limit >= 999999) || isAdmin);
   const tierLabel = isPro ? (isAdmin ? 'Gói Agency / Quản trị' : 'Gói Pro (Không giới hạn)') : 'Gói Miễn phí (10 bài/tháng)';
   const wsLabel = isPro ? 'Pro workspace' : 'Free workspace';

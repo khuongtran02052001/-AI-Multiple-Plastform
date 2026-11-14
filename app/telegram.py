@@ -1,0 +1,102 @@
+"""Telegram bot notification helper for publisher workflow with colored progress."""
+import logging
+import httpx
+
+logger = logging.getLogger('publisher.telegram')
+
+
+def get_colored_progress_bar(percent: int, total_blocks: int = 10) -> str:
+    filled = max(0, min(total_blocks, int(round(percent / (100 / total_blocks)))))
+    empty = total_blocks - filled
+    return '🟩' * filled + '⬜' * empty
+
+
+def build_status_message(source_url: str, label: str, percent: int, step_index: int,
+                         file_info: str = '', video_title: str = '',
+                         youtube_url: str = '', error_message: str = '') -> str:
+    step3_name = 'Tối ưu chuẩn Shorts 9:16 & thẻ #Shorts' if 'Short' in label else 'Tối ưu định dạng & thẻ video'
+    if file_info and step_index >= 3:
+        step3_name += f' ({file_info})'
+
+    steps = [
+        'Tiếp nhận & xếp hàng xử lý',
+        'Tải video TikTok về VPS',
+        step3_name,
+        'Đăng lên YouTube Studio',
+    ]
+
+    if error_message:
+        bar = '🟥' * 10
+        return (
+            f"❌ <b>XUẤT BẢN THẤT BẠI [{label}]</b>\n"
+            f"🔗 {source_url}\n\n"
+            f"Tiến độ: {bar} <b>LỖI</b>\n\n"
+            f"⚠️ <b>Chi tiết lỗi:</b> {error_message}"
+        )
+
+    bar = get_colored_progress_bar(percent)
+    step_lines = []
+    for i, step_name in enumerate(steps, start=1):
+        if i < step_index:
+            step_lines.append(f"🟢 {step_name}")
+        elif i == step_index:
+            if percent >= 100:
+                step_lines.append(f"🟢 {step_name}")
+            else:
+                step_lines.append(f"🟡 {step_name}...")
+        else:
+            step_lines.append(f"⚪ {step_name}")
+
+    steps_block = '\n'.join(step_lines)
+
+    if percent >= 100:
+        title_line = f"\n\n🎬 <b>Tiêu đề:</b> {video_title}" if video_title else ''
+        yt_line = f"\n👉 <b>Xem ngay:</b> <a href='{youtube_url}'>{youtube_url}</a>" if youtube_url else ''
+        return (
+            f"🎉 <b>XUẤT BẢN THÀNH CÔNG [{label}]</b>\n"
+            f"🔗 {source_url}\n\n"
+            f"Tiến độ: {bar} <b>100%</b>\n\n"
+            f"{steps_block}"
+            f"{title_line}"
+            f"{yt_line}"
+        )
+
+    return (
+        f"⏳ <b>ĐANG XỬ LÝ [{label}]</b>\n"
+        f"🔗 {source_url}\n\n"
+        f"Tiến độ: {bar} <b>{percent}%</b>\n\n"
+        f"{steps_block}"
+    )
+
+
+def update_telegram_progress(token: str, chat_id: str | None, message_id: str | int | None,
+                             source_url: str, label: str, percent: int, step_index: int,
+                             file_info: str = '', video_title: str = '',
+                             youtube_url: str = '', error_message: str = ''):
+    if not token or not chat_id or not message_id:
+        return
+    try:
+        text = build_status_message(
+            source_url=source_url,
+            label=label,
+            percent=percent,
+            step_index=step_index,
+            file_info=file_info,
+            video_title=video_title,
+            youtube_url=youtube_url,
+            error_message=error_message
+        )
+        url = f"https://api.telegram.org/bot{token}/editMessageText"
+        payload = {
+            "chat_id": str(chat_id),
+            "message_id": int(message_id),
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
+        }
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(url, json=payload)
+            if resp.is_error:
+                logger.warning("Telegram editMessageText error %s: %s", resp.status_code, resp.text[:200])
+    except Exception as e:
+        logger.warning("Could not update Telegram message: %s", e)

@@ -74,6 +74,46 @@ def _probe(path: Path):
         raise DownloadError('File TikTok không phải MP4 có video hợp lệ.') from exc
 
 
+def convert_to_vertical_short(file_info: dict) -> dict:
+    """Convert landscape video (width > height) to vertical 9:16 (720x1280) with blurred background."""
+    input_path = Path(file_info['path'])
+    output_path = input_path.with_name(f"{file_info['id']}_short.mp4")
+
+    filter_complex = (
+        "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=15:1[bg];"
+        "[0:v]scale=720:1280:force_original_aspect_ratio=decrease[fg];"
+        "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+    )
+    cmd = [
+        'ffmpeg', '-v', 'error', '-y',
+        '-i', str(input_path),
+        '-filter_complex', filter_complex,
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+        '-c:a', 'copy',
+        '-movflags', '+faststart',
+        str(output_path)
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, timeout=300)
+        if res.returncode != 0 or not output_path.is_file():
+            err = res.stderr.decode('utf-8', errors='ignore')[:200]
+            output_path.unlink(missing_ok=True)
+            raise DownloadError(f"Không thể chuyển đổi video sang định dạng Shorts 9:16: {err}")
+
+        output_path.replace(input_path)
+        duration, width, height = _probe(input_path)
+        new_size = input_path.stat().st_size
+
+        file_info['duration'] = duration
+        file_info['width'] = width
+        file_info['height'] = height
+        file_info['size'] = new_size
+        return file_info
+    except subprocess.TimeoutExpired as exc:
+        output_path.unlink(missing_ok=True)
+        raise DownloadError('Quá thời gian chuyển đổi video sang định dạng Shorts 9:16.') from exc
+
+
 def download_tiktok_video(settings, source_url):
     """Download within bounded disk/time limits and return one unpublished media row."""
     url = validate_tiktok_url(source_url)

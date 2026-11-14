@@ -1779,32 +1779,253 @@ window.setPublishFormat = setPublishFormat;
 window.setFacebookFormat = setFacebookFormat;
 window.updatePublishingSettingsUI = updatePublishingSettingsUI;
 
-let taskOffset = 0, tasksLoading = false;
-async function refreshTasks() {
-  if(tasksLoading) return; tasksLoading=true;
-  $('tasks-feedback').textContent='Đang cập nhật…';
-  try {
-    const data=await api(`/api/tasks?limit=25&offset=${taskOffset}`);
-    $('tasks-list').replaceChildren();
-    const stages={pending:'Đã nhận — chờ tải',downloading:'Đang tải video',draft:'Bản nháp',queued:'Chờ đăng',posting:'Đang gửi lên nền tảng',submitted:'Nền tảng đã nhận — kiểm tra xử lý trên kênh',failed:'Thất bại',unknown:'Chưa rõ kết quả — kiểm tra kênh trước khi thử lại',cancelled:'Đã hủy'};
-    for(const task of data.tasks) {
-      const card=el('article','card post-card'),body=el('div','post-body');
-      body.append(el('h2','',task.title),el('p','',stages[task.status]||task.status),el('small','',`${task.kind==='ingest'?'Telegram / n8n':'Web'} · ${task.privacy||'—'} · ${new Date(task.created_at*1000).toLocaleString('vi-VN')}`));
-      body.append(el('p','subtle',`Mã: ${task.id}`));
-      if(task.error) body.append(el('p','post-error',task.error));
-      for(const [url,label] of [[task.source_url,'Video nguồn'],[task.remote_url,'Xem kết quả']]) {
-        try {const parsed=new URL(url);if(parsed.protocol==='https:'){const link=el('a','text-button',label);link.href=parsed.href;link.target='_blank';link.rel='noopener noreferrer';body.append(link);}} catch(_){}
-      }
-      for(const [enabled,label,path] of [[task.can_cancel,'Hủy tác vụ',`/api/tasks/${task.kind}/${task.id}/cancel`],[task.can_retry,'Thử lại đăng',`/api/posts/${task.post_id}/queue`]]) {
-        if(!enabled)continue;
-        const button=el('button','secondary',label);button.onclick=async()=>{if(!confirm(label+'?'))return;button.disabled=true;try{await api(path,{method:'POST'});await refreshTasks();}catch(e){notice(e.message,true);}finally{button.disabled=false;}};body.append(button);
-      }
-      card.append(body);$('tasks-list').append(card);
-    }
-    $('tasks-feedback').textContent=data.tasks.length?`Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`:'Chưa có tác vụ trong trang này.';
-    $('tasks-prev').disabled=taskOffset===0;$('tasks-next').disabled=!data.has_more;
-  } finally {tasksLoading=false;}
+let taskOffset = 0, tasksLoading = false, taskPollTimer = null;
+
+function createLightningProgressBar(task) {
+  const container = el('div', 'lightning-process-card');
+
+  const steps = [
+    { key: 'pending', name: 'Tiếp nhận', pct: 15, desc: 'Hệ thống đã nhận lệnh và đang chuẩn bị tải video...' },
+    { key: 'downloading', name: 'Tải video', pct: 40, desc: 'Đang tải video TikTok về hệ thống OmniPublish...' },
+    { key: 'queued', name: 'Tối ưu 9:16', pct: 65, desc: 'Đang kiểm tra độ phân giải, âm thanh & chuẩn bị xuất bản...' },
+    { key: 'posting', name: 'Đăng lên kênh', pct: 88, desc: 'Đang gửi video lên YouTube / Facebook qua API chính thức...' },
+  ];
+
+  let currentIdx = steps.findIndex(s => s.key === task.status);
+  if (currentIdx === -1) currentIdx = 0;
+  const currentStep = steps[currentIdx];
+  const percent = currentStep.pct;
+
+  // Header
+  const head = el('div', 'lightning-header');
+  const titleWrap = el('div', 'lightning-title-wrap');
+  const bolt = el('span', 'lightning-bolt', '⚡');
+  const titleText = el('span', 'lightning-title', 'OmniProcessing');
+  const stageSub = el('span', 'lightning-stage-sub', `· ${currentStep.name}`);
+  titleWrap.append(bolt, titleText, stageSub);
+
+  const badgeWrap = el('div', 'lightning-badge-wrap');
+  const liveDot = el('span', 'lightning-live-dot');
+  const pctText = el('span', 'lightning-pct-text', `${percent}%`);
+  badgeWrap.append(liveDot, pctText);
+  head.append(titleWrap, badgeWrap);
+  container.append(head);
+
+  // Track & Bar
+  const track = el('div', 'lightning-track');
+  steps.forEach((s, idx) => {
+    const dot = el('span', `lightning-dot ${idx <= currentIdx ? 'passed' : ''}`);
+    dot.style.left = `${s.pct}%`;
+    track.append(dot);
+  });
+
+  const bar = el('div', 'lightning-bar-fill');
+  bar.style.width = `${percent}%`;
+
+  const knob = el('div', 'lightning-head-knob');
+  bar.append(knob);
+  track.append(bar);
+  container.append(track);
+
+  // Steps Row
+  const stepsRow = el('div', 'lightning-steps-row');
+  steps.forEach((s, idx) => {
+    const node = el('div', `lightning-step-node ${idx === currentIdx ? 'active' : idx < currentIdx ? 'completed' : ''}`);
+    const num = el('span', 'step-node-num', idx < currentIdx ? '✓' : `${idx + 1}`);
+    const label = el('span', 'step-node-label', s.name);
+    node.append(num, label);
+    stepsRow.append(node);
+  });
+  container.append(stepsRow);
+
+  const desc = el('div', 'lightning-desc', currentStep.desc);
+  container.append(desc);
+
+  return container;
 }
-$('refresh-tasks').onclick=()=>refreshTasks().catch(e=>notice(e.message,true));
-$('tasks-prev').onclick=()=>{taskOffset=Math.max(0,taskOffset-25);refreshTasks().catch(e=>notice(e.message,true));};
-$('tasks-next').onclick=()=>{taskOffset+=25;refreshTasks().catch(e=>notice(e.message,true));};
+
+function renderTaskCard(task) {
+  const card = el('article', 'task-card');
+
+  // Header
+  const header = el('div', 'task-card-header');
+  const badgesWrap = el('div', 'task-badges-wrap');
+
+  // Platform badge
+  const plat = task.target_platform || 'youtube';
+  const isShorts = task.shorts_mode === 'shorts';
+  let platBadge;
+  if (plat === 'both') {
+    platBadge = el('span', 'task-badge badge-both', '🚀 Đa kênh (YT + FB)');
+  } else if (plat === 'facebook') {
+    platBadge = el('span', 'task-badge badge-fb', isShorts ? '🔵 Facebook Reels' : '🔵 Facebook Video');
+  } else {
+    platBadge = el('span', 'task-badge badge-yt', isShorts ? '🔴 YouTube Shorts' : '🔴 YouTube Video');
+  }
+  badgesWrap.append(platBadge);
+
+  // Source badge
+  const sourceBadge = el('span', 'task-badge badge-source', task.kind === 'ingest' ? '⚡ Telegram Bot' : '🌐 Web Studio');
+  badgesWrap.append(sourceBadge);
+
+  // Privacy badge
+  if (task.privacy) {
+    const privMap = { public: '🌐 Công khai', private: '🔒 Riêng tư', unlisted: '🔗 Không công khai' };
+    badgesWrap.append(el('span', 'task-badge badge-privacy', privMap[task.privacy] || task.privacy));
+  }
+
+  // Status Pill
+  const statusCfg = {
+    pending: { label: '⚡ Tiếp nhận tác vụ', cls: 'status-pill-process' },
+    downloading: { label: '⚡ Đang tải video', cls: 'status-pill-process' },
+    queued: { label: '⚡ Đang xử lý định dạng', cls: 'status-pill-process' },
+    posting: { label: '⚡ Đang gửi lên kênh', cls: 'status-pill-process' },
+    submitted: { label: '🟢 Đã xuất bản lên kênh', cls: 'status-pill-success' },
+    draft: { label: '🟡 Bản nháp', cls: 'status-pill-draft' },
+    failed: { label: '🔴 Thất bại', cls: 'status-pill-failed' },
+    cancelled: { label: '⚪ Đã hủy', cls: 'status-pill-cancelled' },
+    unknown: { label: '⚠️ Cần kiểm tra kênh', cls: 'status-pill-warning' },
+  };
+  const sc = statusCfg[task.status] || { label: task.status, cls: 'status-pill-draft' };
+  const statusPill = el('span', `task-status-pill ${sc.cls}`, sc.label);
+  header.append(badgesWrap, statusPill);
+  card.append(header);
+
+  // Title
+  const title = el('h2', 'task-title', task.title || 'Video đang xử lý');
+  card.append(title);
+
+  // Meta row
+  const metaRow = el('div', 'task-meta-row');
+  const timeStr = new Date(task.created_at * 1000).toLocaleString('vi-VN');
+  metaRow.append(el('span', 'task-meta-item', `🕒 ${timeStr}`));
+  metaRow.append(el('span', 'task-meta-item task-id-mono', `Mã: ${task.id}`));
+  card.append(metaRow);
+
+  // ChatGPT-style Lightning Progress Bar if active
+  const inProgressStatuses = ['pending', 'downloading', 'queued', 'posting'];
+  if (inProgressStatuses.includes(task.status)) {
+    card.append(createLightningProgressBar(task));
+  }
+
+  // Error message
+  if (task.error) {
+    const errBox = el('div', 'task-error-box');
+    const errIcon = el('span', 'task-error-icon', '⚠️');
+    const errMsg = el('div', 'task-error-text', task.error);
+    errBox.append(errIcon, errMsg);
+    card.append(errBox);
+  }
+
+  // Action buttons
+  const actions = el('div', 'task-actions');
+  let hasActions = false;
+
+  if (task.source_url) {
+    try {
+      const parsed = new URL(task.source_url);
+      if (parsed.protocol === 'https:') {
+        const link = el('a', 'task-action-btn secondary-btn', '🔗 Video nguồn (TikTok)');
+        link.href = parsed.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        actions.append(link);
+        hasActions = true;
+      }
+    } catch (_) {}
+  }
+
+  if (task.remote_url) {
+    try {
+      const parsed = new URL(task.remote_url);
+      if (parsed.protocol === 'https:') {
+        const link = el('a', 'task-action-btn primary-btn', '▶ Xem kết quả trên kênh');
+        link.href = parsed.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        actions.append(link);
+        hasActions = true;
+      }
+    } catch (_) {}
+  }
+
+  if (task.can_cancel) {
+    const cancelBtn = el('button', 'task-action-btn danger-btn', '✕ Hủy tác vụ');
+    cancelBtn.onclick = async () => {
+      if (!confirm('Bạn có chắc chắn muốn hủy tác vụ này?')) return;
+      cancelBtn.disabled = true;
+      try {
+        await api(`/api/tasks/${task.kind}/${task.id}/cancel`, { method: 'POST' });
+        notice('Đã hủy tác vụ thành công.');
+        await refreshTasks();
+      } catch (e) {
+        notice(e.message, true);
+      } finally {
+        cancelBtn.disabled = false;
+      }
+    };
+    actions.append(cancelBtn);
+    hasActions = true;
+  }
+
+  if (task.can_retry && task.post_id) {
+    const retryBtn = el('button', 'task-action-btn warning-btn', '↻ Thử lại đăng');
+    retryBtn.onclick = async () => {
+      if (!confirm('Thử lại xuất bản video này?')) return;
+      retryBtn.disabled = true;
+      try {
+        await api(`/api/posts/${task.post_id}/queue`, { method: 'POST' });
+        notice('Đã đưa bài đăng lại vào hàng đợi.');
+        await refreshTasks();
+      } catch (e) {
+        notice(e.message, true);
+      } finally {
+        retryBtn.disabled = false;
+      }
+    };
+    actions.append(retryBtn);
+    hasActions = true;
+  }
+
+  if (hasActions) {
+    card.append(actions);
+  }
+
+  return card;
+}
+
+async function refreshTasks() {
+  if (tasksLoading) return;
+  tasksLoading = true;
+  $('tasks-feedback').textContent = 'Đang cập nhật…';
+  try {
+    const data = await api(`/api/tasks?limit=25&offset=${taskOffset}`);
+    $('tasks-list').replaceChildren();
+    let hasActive = false;
+    for (const task of data.tasks) {
+      if (['pending', 'downloading', 'queued', 'posting'].includes(task.status)) {
+        hasActive = true;
+      }
+      $('tasks-list').append(renderTaskCard(task));
+    }
+    $('tasks-feedback').textContent = data.tasks.length
+      ? `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`
+      : 'Chưa có tác vụ trong trang này.';
+    $('tasks-prev').disabled = taskOffset === 0;
+    $('tasks-next').disabled = !data.has_more;
+
+    if (taskPollTimer) clearTimeout(taskPollTimer);
+    if (hasActive && state.view === 'tasks') {
+      taskPollTimer = setTimeout(() => {
+        if (state.csrf && !document.hidden && state.view === 'tasks') {
+          refreshTasks().catch(() => {});
+        }
+      }, 4000);
+    }
+  } finally {
+    tasksLoading = false;
+  }
+}
+$('refresh-tasks').onclick = () => refreshTasks().catch(e => notice(e.message, true));
+$('tasks-prev').onclick = () => { taskOffset = Math.max(0, taskOffset - 25); refreshTasks().catch(e => notice(e.message, true)); };
+$('tasks-next').onclick = () => { taskOffset += 25; refreshTasks().catch(e => notice(e.message, true)); };

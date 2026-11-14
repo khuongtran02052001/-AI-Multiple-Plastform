@@ -25,6 +25,8 @@ def register_tasks(app, engine, require_session, mutation_auth, is_admin):
             jobs = c.execute(iq.order_by(ingests.c.created_at.desc()).limit(limit+offset+1)).mappings().all()
             linked = select(ingests.c.post_id).where(ingests.c.post_id.is_not(None))
             direct = c.execute(pq.where(~posts.c.id.in_(linked)).order_by(posts.c.created_at.desc()).limit(limit+offset+1)).mappings().all()
+            acc_rows = c.execute(select(accounts.c.id, accounts.c.provider)).mappings().all()
+            acc_map = {row['id']: row['provider'] for row in acc_rows}
             rows = []
             for job in jobs:
                 post = c.execute(select(posts).where(posts.c.id == job['post_id'])).mappings().first() if job['post_id'] else None
@@ -32,7 +34,7 @@ def register_tasks(app, engine, require_session, mutation_auth, is_admin):
                 if post and not admin and post['user_id'] != session['user_id']:
                     post = None
                 rows.append(project(job, post, 'ingest'))
-            rows.extend(project(p, p, 'post') for p in direct)
+            rows.extend(project(p, p, 'post', provider=acc_map.get(p['account_id'])) for p in direct)
         rows.sort(key=lambda r: r['created_at'], reverse=True)
         return {'tasks': rows[offset:offset+limit], 'has_more': len(rows) > offset+limit}
 
@@ -62,15 +64,32 @@ def register_tasks(app, engine, require_session, mutation_auth, is_admin):
         return {'ok': True}
 
 
-def project(job, post, kind):
+def project(job, post, kind, provider=None):
     status = post['status'] if post else job['status']
-    return {'id': job['id'], 'kind': kind, 'post_id': post['id'] if post else None,
-            'title': (post['title'] if post else job['title']) or 'Video đang xử lý',
-            'status': status, 'created_at': job['created_at'],
-            'updated_at': post['updated_at'] if post else job['updated_at'],
-            'source_url': job['source_url'] if kind == 'ingest' else None,
-            'remote_url': post['remote_url'] if post else None,
-            'privacy': post['privacy'] if post else job['privacy'],
-            'error': post['error'] if post else job['error'],
-            'can_cancel': status in ('pending','queued','draft'),
-            'can_retry': bool(post and status == 'failed')}
+    target_platform = 'youtube'
+    shorts_mode = 'auto'
+    if kind == 'ingest':
+        target_platform = job.get('target_platform') if hasattr(job, 'get') else (job['target_platform'] if 'target_platform' in job else 'youtube')
+        shorts_mode = job.get('shorts_mode') if hasattr(job, 'get') else (job['shorts_mode'] if 'shorts_mode' in job else 'auto')
+    elif provider:
+        target_platform = provider
+    elif post and hasattr(post, 'get') and post.get('provider'):
+        target_platform = post['provider']
+
+    return {
+        'id': job['id'],
+        'kind': kind,
+        'post_id': post['id'] if post else None,
+        'title': (post['title'] if post else job['title']) or 'Video đang xử lý',
+        'status': status,
+        'created_at': job['created_at'],
+        'updated_at': post['updated_at'] if post else job['updated_at'],
+        'source_url': job['source_url'] if kind == 'ingest' else None,
+        'remote_url': post['remote_url'] if post else None,
+        'privacy': post['privacy'] if post else job['privacy'],
+        'target_platform': target_platform or 'youtube',
+        'shorts_mode': shorts_mode or 'auto',
+        'error': post['error'] if post else job['error'],
+        'can_cancel': status in ('pending', 'queued', 'draft'),
+        'can_retry': bool(post and status == 'failed'),
+    }

@@ -1382,3 +1382,583 @@ button:not(:disabled):active{transform:translateY(1px)}
 @keyframes omni-progress{0%{transform:translateX(-105%)}100%{transform:translateX(390%)}}
 @keyframes omni-enter{from{opacity:.65;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.view-enter,#upload-bar,#processing-progress{animation:none!important;transition:none!important;transform:none!important}}
+
+/* ==========================================================================
+   TASK CENTER & CHATGPT-STYLE ELECTRIC LIGHTNING PROCESS BAR
+   ========================================================================== */
+
+#tasks-view {
+  max-width: 960px;
+}
+
+#tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+/* Modern Task Card */
+.task-card {
+  background: linear-gradient(180deg, #111827 0%, #0d131f 100%);
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.task-card:hover {
+  border-color: #334155;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Header with Badges & Status */
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.task-badges-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  letter-spacing: -0.01em;
+}
+
+.task-badge.badge-yt {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.task-badge.badge-fb {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.task-badge.badge-both {
+  background: rgba(168, 85, 247, 0.14);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.task-badge.badge-source {
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.25);
+}
+
+.task-badge.badge-privacy {
+  background: rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+/* Status Pills */
+.task-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.status-pill-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-pill-process {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+  animation: pulse-lightning-glow 2s infinite ease-in-out;
+}
+
+.status-pill-draft {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-pill-failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-pill-cancelled {
+  background: rgba(100, 116, 139, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.status-pill-warning {
+  background: rgba(234, 179, 8, 0.12);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+/* Title and Meta */
+.task-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  line-height: 1.4;
+  margin: 4px 0 8px 0;
+  word-break: break-word;
+}
+
+.task-meta-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.task-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-id-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #94a3b8;
+  background: #1e293b;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+/* --- CHATGPT-STYLE ELECTRIC LIGHTNING PROGRESS WIDGET --- */
+.lightning-process-card {
+  background: linear-gradient(145deg, #18181b 0%, #0f172a 100%);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin: 14px 0 16px 0;
+  box-shadow: 0 4px 25px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.lightning-process-card::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  left: 20%;
+  width: 140px;
+  height: 90px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+.lightning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.lightning-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lightning-bolt {
+  font-size: 16px;
+  color: #60a5fa;
+  display: inline-block;
+  text-shadow: 0 0 10px #3b82f6, 0 0 20px #60a5fa;
+  animation: lightning-strike 2.2s infinite ease-in-out;
+}
+
+.lightning-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.lightning-stage-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: #93c5fd;
+}
+
+.lightning-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.lightning-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 8px #60a5fa;
+  animation: head-pulse 1.2s infinite ease-in-out;
+}
+
+.lightning-pct-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #60a5fa;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Electric Track & Bar Fill */
+.lightning-track {
+  height: 14px;
+  background: #1e293b;
+  border-radius: 999px;
+  position: relative;
+  overflow: visible;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+  margin-bottom: 14px;
+}
+
+.lightning-dot {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.lightning-dot.passed {
+  background: #ffffff;
+  box-shadow: 0 0 8px #60a5fa;
+}
+
+.lightning-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 50%, #60a5fa 100%);
+  border-radius: 999px;
+  position: relative;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.7), 0 0 25px rgba(96, 165, 250, 0.35);
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Moving Electric Shimmer overlay */
+.lightning-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: electric-sweep 1.8s linear infinite;
+}
+
+/* Circular Glowing White Head/Knob */
+.lightning-head-knob {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px #ffffff, 0 0 18px #60a5fa, 0 0 28px #3b82f6;
+  transform: translate(50%, -50%);
+  z-index: 4;
+  animation: head-pulse 1.4s ease-in-out infinite;
+}
+
+/* Steps Labels Row */
+.lightning-steps-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lightning-step-node {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.step-node-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.lightning-step-node.active {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.lightning-step-node.active .step-node-num {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+  animation: head-pulse 1.4s infinite ease-in-out;
+}
+
+.lightning-step-node.completed {
+  color: #cbd5e1;
+}
+
+.lightning-step-node.completed .step-node-num {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.lightning-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+/* Animations for Lightning Effects */
+@keyframes lightning-strike {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px #60a5fa);
+  }
+  30% {
+    opacity: 0.8;
+    transform: scale(0.95);
+    filter: drop-shadow(0 0 4px #3b82f6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 16px #93c5fd) drop-shadow(0 0 24px #3b82f6);
+  }
+  70% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes electric-sweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes head-pulse {
+  0%, 100% {
+    transform: translate(50%, -50%) scale(1);
+    box-shadow: 0 0 10px #ffffff, 0 0 18px #60a5fa, 0 0 28px #3b82f6;
+  }
+  50% {
+    transform: translate(50%, -50%) scale(1.18);
+    box-shadow: 0 0 14px #ffffff, 0 0 25px #93c5fd, 0 0 38px #60a5fa;
+  }
+}
+
+@keyframes pulse-lightning-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  }
+}
+
+/* Error banner */
+.task-error-box {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.task-error-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.task-error-text {
+  font-size: 12px;
+  color: #fca5a5;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Action Buttons Container & Individual Buttons */
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.task-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  line-height: 1.3;
+}
+
+.task-action-btn.secondary-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+}
+
+.task-action-btn.secondary-btn:hover {
+  background: #334155;
+  border-color: #475569;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.task-action-btn.primary-btn {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  border: 1px solid #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+}
+
+.task-action-btn.primary-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.45);
+  transform: translateY(-1px);
+}
+
+.task-action-btn.danger-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.task-action-btn.danger-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.task-action-btn.warning-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+.task-action-btn.warning-btn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+.task-pagination {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* Reduced motion support */
+@media(prefers-reduced-motion:reduce) {
+  .lightning-bolt,
+  .lightning-live-dot,
+  .lightning-bar-fill::after,
+  .lightning-head-knob,
+  .status-pill-process,
+  .lightning-step-node.active .step-node-num {
+    animation: none !important;
+  }
+  .lightning-bar-fill {
+    transition: none !important;
+  }
+}
+
+/* Mobile responsive for Task Center */
+@media(max-width: 600px) {
+  .task-card {
+    padding: 16px;
+  }
+  .task-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .lightning-steps-row {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .task-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .task-action-btn {
+    justify-content: center;
+    width: 100%;
+  }
+}

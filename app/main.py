@@ -27,7 +27,7 @@ from typing import Literal
 
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, PlainTextResponse, HTMLResponse
 
 from fastapi.staticfiles import StaticFiles
 
@@ -1690,6 +1690,18 @@ def create_app(config=None, engine=None, providers=None):
     @app.api_route('/terms', methods=['GET', 'HEAD'])
     def terms():
         return FileResponse(root / 'terms.html')
+
+    @app.api_route('/tiktok-developers-site-verification={token}', methods=['GET', 'HEAD'])
+    def tiktok_verify(token: str):
+        return PlainTextResponse(f"tiktok-developers-site-verification={token}")
+
+    @app.api_route('/tiktok-developers-site-verification={token}.txt', methods=['GET', 'HEAD'])
+    def tiktok_verify_txt(token: str):
+        return PlainTextResponse(f"tiktok-developers-site-verification={token}")
+
+    @app.api_route('/tiktok-developers-site-verification={token}.html', methods=['GET', 'HEAD'])
+    def tiktok_verify_html(token: str):
+        return HTMLResponse(f"tiktok-developers-site-verification={token}")
 
 
 

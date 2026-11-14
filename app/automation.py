@@ -49,6 +49,10 @@ def register_automation(app, engine, settings):
         # Check against configured admin telegram chat id
         admin_chat = getattr(settings, 'admin_telegram_chat_id', '5988211094')
         if telegram_chat_id and str(telegram_chat_id) == str(admin_chat):
+            with engine.connect() as c:
+                owner = c.execute(select(users.c.id).where(users.c.email == 'khuongtran227@gmail.com')).first()
+                if owner:
+                    return owner[0]
             return 'usr_owner_default'
 
         target_id = f'usr_tg_{telegram_chat_id}'

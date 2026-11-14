@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 
 const state = {csrf: '', accounts: [], posts: [], config: {}, user: null, quota: null, apiKeys: [], media: null, blob: null, batch: crypto.randomUUID(), view: 'compose', busy: false, uploading: false};
 
-const labels = {draft:'Draft',queued:'Queued',posting:'Publishing',submitted:'Delivered',failed:'Failed',unknown:'Review needed',cancelled:'Cancelled'};
+const labels = {draft:'Draft',queued:'Queued',posting:'Publishing',submitted:'Đã gửi nền tảng',failed:'Failed',unknown:'Review needed',cancelled:'Cancelled'};
 
 const platformName = (p) => ({youtube:'YouTube',facebook:'Facebook Page',tiktok:'TikTok',instagram:'Instagram',linkedin:'LinkedIn',x:'X',pinterest:'Pinterest'}[p]||p);
 
@@ -24,6 +24,8 @@ function notice(message, error = false, duration = 4500) {
   btn.onclick = () => { n.hidden = true; };
   n.append(msg, btn);
   n.className = 'notice' + (error ? ' error' : '');
+  n.setAttribute('role', error ? 'alert' : 'status');
+  btn.setAttribute('aria-label', 'Đóng thông báo');
   n.hidden = false;
   noticeTimer = setTimeout(() => { n.hidden = true; }, error ? 6500 : duration);
 }
@@ -40,7 +42,8 @@ async function api(path, options={}) {
 
   const response=await fetch(path,{...options,headers});
 
-  const data=await response.json();
+  let data;
+  try { data = await response.json(); } catch (_) { throw new Error(`Máy chủ trả phản hồi không hợp lệ (HTTP ${response.status}).`); }
 
   if(!response.ok) {
 
@@ -58,16 +61,19 @@ async function api(path, options={}) {
 
 function changeView(view) {
 
+  const changed = state.view !== view;
   state.view=view;
+  if (view === 'tasks') refreshTasks().catch(e=>notice(e.message,true));
+  if (changed) { const panel = $(view + '-view'); if (panel) { panel.classList.remove('view-enter'); void panel.offsetWidth; panel.classList.add('view-enter'); } }
 
-  for(const name of ['dashboard','compose','history','accounts','calendar','analytics','developer','settings']) $(name+'-view').hidden=name!==view;
+  for(const name of ['tasks','dashboard','compose','history','accounts','calendar','analytics','developer','settings']) $(name+'-view').hidden=name!==view;
 
   document.querySelectorAll('.nav-button').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
 
-  $('breadcrumb-view').textContent={dashboard:'Overview',compose:'Create post',history:'Posts',accounts:'Social accounts',calendar:'Calendar',analytics:'Analytics',developer:'Automations & API',settings:'Settings'}[view];
+  $('breadcrumb-view').textContent={tasks:'Trung tâm tác vụ',dashboard:'Overview',compose:'Create post',history:'Posts',accounts:'Social accounts',calendar:'Calendar',analytics:'Analytics',developer:'Automations & API',settings:'Settings'}[view];
 
   if(view==='history'||view==='calendar'||view==='dashboard') refreshPosts().catch(e=>notice(e.message,true));
-  if(view==='analytics') { refreshPosts().then(() => renderAnalytics()).catch(e=>notice(e.message,true)); }
+  if(view==='analytics') { refreshPosts().catch(e=>notice(e.message,true)); }
   if(view==='settings') { renderSettings(); } if(view==='developer') renderApiKeys().catch(e=>notice(e.message,true));
 
 }
@@ -96,7 +102,7 @@ function preview() {
       for (const a of checkedAccounts) {
         const pill = el('span', `selected-summary-pill ${a.provider}`);
         const sText = document.getElementById(`channel-summary-${a.id}`)?.textContent || '';
-        pill.innerHTML = `<span>${a.provider === 'youtube' ? '▶' : 'f'}</span> <strong>${a.name}</strong> <small style="opacity:0.8">(${sText})</small>`;
+        pill.append(icon(a.provider), el('strong', '', a.name), el('small', '', sText));
         summaryBox.append(pill);
       }
     }
@@ -188,9 +194,9 @@ async function renderApiKeys() {
 
       const tr = el('tr');
 
-      const tdName = el('td'); tdName.innerHTML = `<strong>${k.name}</strong>`;
+      const tdName = el('td'); tdName.append(el('strong', '', k.name));
 
-      const tdPrefix = el('td'); tdPrefix.innerHTML = `<span class="code-badge">${k.key_prefix}</span>`;
+      const tdPrefix = el('td'); tdPrefix.append(el('span', 'code-badge', k.key_prefix));
 
       const tdDate = el('td', '', new Date(k.created_at * 1000).toLocaleDateString('vi-VN'));
 
@@ -244,7 +250,7 @@ async function renderApiKeys() {
 
   } catch (e) {
 
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red);padding:14px;">Lỗi tải API Keys: ${e.message}</td></tr>`;
+    const row = el('tr'), cell = el('td', 'post-error', 'Lỗi tải API Keys: ' + e.message); cell.colSpan=5; row.append(cell); tbody.replaceChildren(row);
 
   }
 
@@ -440,8 +446,10 @@ function renderDashboard() {
   }
   const progress = $('processing-progress');
   if (progress) {
-    progress.style.width = sampleProcessing ? '65%' : '0%';
-    progress.setAttribute('aria-valuenow', sampleProcessing ? '65' : '0');
+    progress.classList.toggle('indeterminate', queued > 0);
+    progress.style.width = queued ? '35%' : sampleProcessing ? '65%' : '0%';
+    if (queued) progress.removeAttribute('aria-valuenow');
+    else progress.setAttribute('aria-valuenow', sampleProcessing ? '65' : '0');
     progress.setAttribute('aria-label', sampleProcessing ? 'Demo video ingestion progress' : 'Publishing queue progress');
   }
   if ($('processing-foot')) {
@@ -574,7 +582,12 @@ function renderPosts() {
 
 }
 
-async function refreshPosts(){state.posts=await api('/api/posts');renderPosts();}
+let postsRequest = null;
+async function refreshPosts(){
+  if (postsRequest) return postsRequest;
+  postsRequest = (async () => {state.posts=await api('/api/posts');renderPosts(); if(state.view === 'analytics') renderAnalytics();})();
+  try { await postsRequest; } finally { postsRequest = null; }
+}
 
 async function load(){[state.config,state.accounts,state.quota]=await Promise.all([api('/api/config'),api('/api/accounts'),api('/api/user/quota')]);renderAccounts();renderQuota();await refreshPosts();}
 
@@ -829,15 +842,29 @@ $('ingest-button').addEventListener('click',()=>{const input=$('ingest-url');if(
 
 $('title').oninput=preview;$('description').oninput=preview;$('status-filter').onchange=renderPosts;$('refresh-posts').onclick=()=>refreshPosts().catch(e=>notice(e.message,true));
 
+function setUploadProgress(percent, complete = false) {
+  $('upload-progress').hidden = false;
+  const waiting = percent === null || (percent === 100 && !complete);
+  $('upload-stage').textContent = complete ? 'Video đã sẵn sàng' : waiting ? 'Đang kiểm tra video trên máy chủ…' : 'Đang tải video lên VPS';
+  $('upload-percent').textContent = waiting ? '' : `${percent}%`;
+  const bar = $('upload-bar');
+  bar.classList.toggle('indeterminate', waiting);
+  bar.style.width = waiting ? '35%' : `${percent}%`;
+  if (waiting) bar.removeAttribute('aria-valuenow');
+  else bar.setAttribute('aria-valuenow', String(percent));
+}
+
 async function upload(file){
 
   if(!file||state.uploading)return;
 
-  state.uploading=true;state.media=null;$('upload-info').hidden=false;$('upload-info').textContent='Uploading and checking your video…';$('video').disabled=true;
+  state.uploading=true;state.media=null;$('upload-info').hidden=false;$('upload-info').textContent='Uploading and checking your video…';$('video').disabled=true;$('queue-button').disabled=true;$('draft-button').disabled=true;$('dropzone').setAttribute('aria-busy','true');
 
   try{if(!file.name.toLowerCase().endsWith('.mp4'))throw new Error('Choose an MP4 file.');if(file.size>state.config.max_upload_mb*1024*1024)throw new Error('The video exceeds the size limit.');
 
-    const data=new FormData();data.append('file',file);state.media=await api('/api/media',{method:'POST',body:data});
+    setUploadProgress(0);
+    state.media=await OmniUI.upload(file,state.csrf,setUploadProgress,loggedOut);
+    setUploadProgress(100, true);
 
     $('upload-info').textContent=`${state.media.filename} · ${(state.media.size/1024/1024).toFixed(1)} MB · ${Math.round(state.media.duration)} giây · ${state.media.width} × ${state.media.height}`;
 
@@ -851,9 +878,9 @@ async function upload(file){
     }
 
 
-  }catch(e){$('upload-info').textContent=e.message;notice(e.message,true);$('video-preview').hidden=true;$('preview-placeholder').hidden=false;}
+  }catch(e){$('upload-progress').hidden=true;$('upload-info').textContent=e.message;notice(e.message,true);$('video-preview').hidden=true;$('preview-placeholder').hidden=false;}
 
-  finally{state.uploading=false;$('video').disabled=false;}
+  finally{state.uploading=false;$('video').disabled=false;$('queue-button').disabled=state.busy;$('draft-button').disabled=state.busy;$('dropzone').removeAttribute('aria-busy');}
 
 }
 
@@ -872,6 +899,9 @@ async function submit(action){
   if(action==='queue'&&!confirm(`Queue this post for ${ids.length} selected channel(s)? YouTube privacy: ${$('privacy').selectedOptions[0].textContent}.`))return;
 
   state.busy=true;$('queue-button').disabled=true;$('draft-button').disabled=true;
+  $('post-form').setAttribute('aria-busy','true');
+  const activeButton = $(action === 'draft' ? 'draft-button' : 'queue-button');
+  const savedButtonText = activeButton.textContent; activeButton.textContent = 'Đang lưu…';
 
   try{await api('/api/posts',{method:'POST',body:JSON.stringify({batch_key:state.batch,account_ids:ids,title:$('title').value,description:$('description').value,
 
@@ -879,9 +909,9 @@ async function submit(action){
 
     scheduled_at:$('schedule').value?new Date($('schedule').value).toISOString():null})});
 
-    state.batch=crypto.randomUUID();state.media=null;$('post-form').reset();$('upload-info').hidden=true;$('video-preview').pause();$('video-preview').removeAttribute('src');$('video-preview').hidden=true;$('preview-placeholder').hidden=false;if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}preview(); updatePublishingSettingsUI();changeView('history');notice(action==='draft'?'Draft saved.':'Post added to the queue. Follow its progress below.');await refreshPosts();
+    state.batch=crypto.randomUUID();state.media=null;$('post-form').reset();$('upload-info').hidden=true;$('upload-progress').hidden=true;$('video-preview').pause();$('video-preview').removeAttribute('src');$('video-preview').hidden=true;$('preview-placeholder').hidden=false;if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}preview(); updatePublishingSettingsUI();changeView('history');notice(action==='draft'?'Draft saved.':'Post added to the queue. Follow its progress below.');await refreshPosts();
 
-  }catch(e){notice(e.message,true);}finally{state.busy=false;$('queue-button').disabled=false;$('draft-button').disabled=false;}
+  }catch(e){notice(e.message,true);}finally{state.busy=false;$('post-form').removeAttribute('aria-busy');activeButton.textContent=savedButtonText;$('queue-button').disabled=false;$('draft-button').disabled=false;}
 
 }
 
@@ -889,7 +919,7 @@ $('post-form').onsubmit=e=>{e.preventDefault();submit('queue');};$('draft-button
 
 $('timezone-label').textContent=`Your local time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}. Stored and processed in UTC.`;
 
-setInterval(()=>{if(state.csrf&&!document.hidden)refreshPosts().catch(e=>notice(e.message,true));},12000);
+setInterval(()=>{if(state.csrf&&!document.hidden&&state.view==='tasks') refreshTasks().catch(e=>notice(e.message,true)); else if(state.csrf&&!document.hidden)refreshPosts().catch(e=>notice(e.message,true));},12000);
 
 (async()=>{
   initGoogleAuth();
@@ -1050,7 +1080,7 @@ function renderUserProfile() {
   const rawName = state.user.name || (state.user.email ? state.user.email.split('@')[0] : 'bạn');
   const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
   const avatarChar = cleanName.charAt(0).toUpperCase() || 'U';
-  const isAdmin = (state.user.role === 'admin' || state.user.email === 'admin@toomi.vn' || state.user.email === 'khuongtran227@gmail.com');
+  const isAdmin = (['admin', 'superadmin'].includes(state.user.role));
   const isPro = (state.user.tier === 'pro' || state.user.tier === 'agency' || (state.user.posts_limit && state.user.posts_limit >= 999999) || isAdmin);
   const tierLabel = isPro ? (isAdmin ? 'Gói Agency / Quản trị' : 'Gói Pro (Không giới hạn)') : 'Gói Miễn phí (10 bài/tháng)';
   const wsLabel = isPro ? 'Pro workspace' : 'Free workspace';
@@ -1153,10 +1183,13 @@ function renderUserProfile() {
 // --- ANIMATED DYNAMIC ANALYTICS ENGINE (Chart.js) ---
 let analyticsChartInstance = null;
 let currentAnalyticsDays = 7;
+let currentAnalyticsPlatform = 'all';
 
-function renderAnalytics(days = currentAnalyticsDays) {
+function renderAnalytics(days = currentAnalyticsDays, platform = currentAnalyticsPlatform) {
   currentAnalyticsDays = days;
-  const posts = state.posts || [];
+  currentAnalyticsPlatform = platform;
+  const series = OmniUI.analytics(state.posts || [], days, platform);
+  const posts = series.rows;
   const publishedPosts = posts.filter(p => p.status === 'submitted');
   const queuedPosts = posts.filter(p => ['queued', 'posting'].includes(p.status));
   const failedPosts = posts.filter(p => p.status === 'failed');
@@ -1165,13 +1198,13 @@ function renderAnalytics(days = currentAnalyticsDays) {
   const queuedCount = queuedPosts.length;
   const successRate = (publishedCount + failedPosts.length) > 0 
     ? Math.round((publishedCount / (publishedCount + failedPosts.length)) * 100) 
-    : 100;
+    : null;
 
   if (document.getElementById('analytics-total-published')) {
     document.getElementById('analytics-total-published').textContent = publishedCount;
   }
   if (document.getElementById('analytics-success-rate')) {
-    document.getElementById('analytics-success-rate').textContent = `${successRate}%`;
+    document.getElementById('analytics-success-rate').textContent = successRate === null ? '—' : `${successRate}%`;
   }
   if (document.getElementById('analytics-in-queue')) {
     document.getElementById('analytics-in-queue').textContent = queuedCount;
@@ -1180,33 +1213,10 @@ function renderAnalytics(days = currentAnalyticsDays) {
     document.getElementById('analytics-active-channels').textContent = state.accounts?.length || 0;
   }
 
-  // Build daily timeline
-  const labels = [];
-  const publishedData = [];
-  const otherData = [];
-  const now = new Date();
-
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    labels.push(d.toLocaleDateString('vi-VN', { month: 'numeric', day: 'numeric' }));
-
-    const pubForDay = publishedPosts.filter(p => {
-      const pDate = new Date((p.created_at || 0) * 1000).toISOString().slice(0, 10);
-      return pDate === dateStr;
-    }).length;
-
-    const otherForDay = posts.filter(p => {
-      if (p.status === 'submitted') return false;
-      const pDate = new Date((p.created_at || 0) * 1000).toISOString().slice(0, 10);
-      return pDate === dateStr;
-    }).length;
-
-    publishedData.push(pubForDay);
-    otherData.push(otherForDay);
-  }
-
+  const labels = series.labels, publishedData = series.submitted, otherData = series.other;
+  $('analytics-empty').hidden = posts.length > 0;
+  $('analytics-platform-select').value = platform;
+  renderAnalyticsPostsTable();
   // Update timeframe buttons
   document.querySelectorAll('.analytics-tf-btn').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
@@ -1215,10 +1225,14 @@ function renderAnalytics(days = currentAnalyticsDays) {
   const canvas = document.getElementById('analyticsChart');
   if (!canvas || !window.Chart) return;
 
-  const ctx = canvas.getContext('2d');
-  if (analyticsChartInstance) {
-    analyticsChartInstance.destroy();
+  if (analyticsChartInstance && analyticsChartInstance.canvas === canvas) {
+    analyticsChartInstance.data.labels = labels;
+    analyticsChartInstance.data.datasets[0].data = publishedData;
+    analyticsChartInstance.data.datasets[1].data = otherData;
+    analyticsChartInstance.update(window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'none' : undefined);
+    return;
   }
+  const ctx = canvas.getContext('2d');
 
   const gradPub = ctx.createLinearGradient(0, 0, 0, 260);
   gradPub.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
@@ -1234,7 +1248,7 @@ function renderAnalytics(days = currentAnalyticsDays) {
       labels: labels,
       datasets: [
         {
-          label: 'Video đã xuất bản',
+          label: 'Đã gửi tới nền tảng',
           data: publishedData,
           borderColor: '#6366f1',
           borderWidth: 3,
@@ -1248,7 +1262,7 @@ function renderAnalytics(days = currentAnalyticsDays) {
           pointHoverRadius: 7
         },
         {
-          label: 'Đang xếp hàng / lỗi',
+          label: 'Đang chờ / lỗi / cần kiểm tra',
           data: otherData,
           borderColor: '#f59e0b',
           borderWidth: 2,
@@ -1268,7 +1282,7 @@ function renderAnalytics(days = currentAnalyticsDays) {
       responsive: true,
       maintainAspectRatio: false,
       animation: {
-        duration: 900,
+        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450,
         easing: 'easeOutQuart'
       },
       plugins: {
@@ -1306,6 +1320,24 @@ function renderAnalytics(days = currentAnalyticsDays) {
       }
     }
   });
+}
+
+function renderAnalyticsPostsTable(search = $('analytics-search-posts')?.value || '', status = $('analytics-status-filter')?.value || 'all') {
+  const target = $('analytics-posts-tbody'); if (!target) return;
+  target.replaceChildren();
+  const rows = OmniUI.analytics(state.posts || [], currentAnalyticsDays, currentAnalyticsPlatform).rows
+    .filter(p => (status === 'all' || p.status === status) && String(p.title || '').toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  if (!rows.length) {
+    const row=el('tr'), cell=el('td', 'subtle', 'Không có bài đăng khớp bộ lọc.'); cell.colSpan=7; row.append(cell); target.append(row); return;
+  }
+  for (const post of rows) {
+    const row=el('tr');
+    for (const value of [post.title, post.account_name, post.provider === 'youtube' ? (post.shorts ? 'Shorts' : 'Video') : platformName(post.provider), '—', labels[post.status] || post.status, new Date(post.created_at * 1000).toLocaleString('vi-VN')]) row.append(el('td', '', value));
+    const linkCell=el('td');
+    try { const url=new URL(post.remote_url); if (url.protocol === 'https:') {const link=el('a', '', 'Xem bài ↗');link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';linkCell.append(link);} } catch (_) {}
+    if(!linkCell.childNodes.length) linkCell.textContent='—';
+    row.append(linkCell);target.append(row);
+  }
 }
 
 // Timeframe selector clicks
@@ -1679,12 +1711,12 @@ function updatePublishingSettingsUI() {
           const isShorts = document.getElementById('shorts')?.checked ?? true;
           const priv = document.getElementById('privacy')?.value || 'private';
           const privLabel = priv === 'public' ? 'Công khai' : priv === 'unlisted' ? 'Không công khai' : 'Riêng tư';
-          pill.innerHTML = `<span>▶ ${a.name}</span><small>${isShorts ? 'Shorts' : 'Video 16:9'} · ${privLabel}</small>`;
+          pill.append(el('span', '', '▶ ' + a.name), el('small', '', `${isShorts ? 'Shorts' : 'Video 16:9'} · ${privLabel}`));
         } else if (a.provider === 'facebook') {
           const isReels = document.getElementById('fb_reels')?.checked ?? true;
-          pill.innerHTML = `<span>f ${a.name}</span><small>${isReels ? 'Reels' : 'Feed'}</small>`;
+          pill.append(el('span', '', 'f ' + a.name), el('small', '', isReels ? 'Reels' : 'Feed'));
         } else {
-          pill.innerHTML = `<span>● ${a.name}</span><small>${platformName(a.provider)}</small>`;
+          pill.append(el('span', '', a.name), el('small', '', platformName(a.provider)));
         }
         summaryBox.appendChild(pill);
       }
@@ -1728,7 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Bind Analytics Timeframe buttons
   document.querySelectorAll('.analytics-tf-btn').forEach(btn => {
-    btn.onclick = () => renderAnalytics(parseInt(btn.dataset.days), currentAnalyticsPlatform);
+    btn.onclick = null;
   });
 
   // Bind Analytics Posts table search & status filter
@@ -1746,3 +1778,33 @@ document.addEventListener('DOMContentLoaded', () => {
 window.setPublishFormat = setPublishFormat;
 window.setFacebookFormat = setFacebookFormat;
 window.updatePublishingSettingsUI = updatePublishingSettingsUI;
+
+let taskOffset = 0, tasksLoading = false;
+async function refreshTasks() {
+  if(tasksLoading) return; tasksLoading=true;
+  $('tasks-feedback').textContent='Đang cập nhật…';
+  try {
+    const data=await api(`/api/tasks?limit=25&offset=${taskOffset}`);
+    $('tasks-list').replaceChildren();
+    const stages={pending:'Đã nhận — chờ tải',downloading:'Đang tải video',draft:'Bản nháp',queued:'Chờ đăng',posting:'Đang gửi lên nền tảng',submitted:'Nền tảng đã nhận — kiểm tra xử lý trên kênh',failed:'Thất bại',unknown:'Chưa rõ kết quả — kiểm tra kênh trước khi thử lại',cancelled:'Đã hủy'};
+    for(const task of data.tasks) {
+      const card=el('article','card post-card'),body=el('div','post-body');
+      body.append(el('h2','',task.title),el('p','',stages[task.status]||task.status),el('small','',`${task.kind==='ingest'?'Telegram / n8n':'Web'} · ${task.privacy||'—'} · ${new Date(task.created_at*1000).toLocaleString('vi-VN')}`));
+      body.append(el('p','subtle',`Mã: ${task.id}`));
+      if(task.error) body.append(el('p','post-error',task.error));
+      for(const [url,label] of [[task.source_url,'Video nguồn'],[task.remote_url,'Xem kết quả']]) {
+        try {const parsed=new URL(url);if(parsed.protocol==='https:'){const link=el('a','text-button',label);link.href=parsed.href;link.target='_blank';link.rel='noopener noreferrer';body.append(link);}} catch(_){}
+      }
+      for(const [enabled,label,path] of [[task.can_cancel,'Hủy tác vụ',`/api/tasks/${task.kind}/${task.id}/cancel`],[task.can_retry,'Thử lại đăng',`/api/posts/${task.post_id}/queue`]]) {
+        if(!enabled)continue;
+        const button=el('button','secondary',label);button.onclick=async()=>{if(!confirm(label+'?'))return;button.disabled=true;try{await api(path,{method:'POST'});await refreshTasks();}catch(e){notice(e.message,true);}finally{button.disabled=false;}};body.append(button);
+      }
+      card.append(body);$('tasks-list').append(card);
+    }
+    $('tasks-feedback').textContent=data.tasks.length?`Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`:'Chưa có tác vụ trong trang này.';
+    $('tasks-prev').disabled=taskOffset===0;$('tasks-next').disabled=!data.has_more;
+  } finally {tasksLoading=false;}
+}
+$('refresh-tasks').onclick=()=>refreshTasks().catch(e=>notice(e.message,true));
+$('tasks-prev').onclick=()=>{taskOffset=Math.max(0,taskOffset-25);refreshTasks().catch(e=>notice(e.message,true));};
+$('tasks-next').onclick=()=>{taskOffset+=25;refreshTasks().catch(e=>notice(e.message,true));};

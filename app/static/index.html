@@ -12,8 +12,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/style.css?v=20261114.v7"><script src="/static/vendor/chart.umd.min.js?v=20261114" defer></script>
-  <script src="/static/app.js?v=20261114.v7" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=20261114.v9"><script src="/static/vendor/chart.umd.min.js?v=20261114" defer></script>
+  <script src="/static/ui-utils.js?v=20261114.v9" defer></script>
+  <script src="/static/app.js?v=20261114.v9" defer></script>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
@@ -159,7 +160,7 @@
 
       <div class="nav-caption">WORKSPACE</div><nav aria-label="Main navigation">
 
-        <button data-view="dashboard" class="nav-button active"><span>◫</span>Overview</button><button data-view="compose" class="nav-button"><span>＋</span>Create post</button><button data-view="history" class="nav-button"><span>▤</span>Posts <b id="nav-count">0</b></button><button data-view="accounts" class="nav-button"><span>◎</span>Social accounts</button><button data-view="calendar" class="nav-button"><span>▦</span>Calendar</button><button data-view="analytics" class="nav-button"><span>↗</span>Analytics</button>
+        <button data-view="dashboard" class="nav-button active"><span>◫</span>Overview</button><button data-view="compose" class="nav-button"><span>＋</span>Create post</button><button data-view="tasks" class="nav-button"><span>📋</span>Trung tâm tác vụ</button><button data-view="history" class="nav-button"><span>▤</span>Posts <b id="nav-count">0</b></button><button data-view="accounts" class="nav-button"><span>◎</span>Social accounts</button><button data-view="calendar" class="nav-button"><span>▦</span>Calendar</button><button data-view="analytics" class="nav-button"><span>↗</span>Analytics</button>
 
         <div class="nav-caption nav-caption-lower">WORKSPACE TOOLS</div><button data-view="developer" class="nav-button"><span>⌘</span>Automations & API</button><button data-view="settings" class="nav-button"><span>⚙</span>Settings</button><button data-view="admin" class="nav-button admin-only" id="nav-btn-admin" hidden><span style="color:#f59e0b">🛡️</span>Quản trị hệ thống</button>
 
@@ -296,7 +297,7 @@
 
           <article class="card"><div class="card-title"><span class="step">02</span><h2>Post details</h2></div><div class="field-heading"><label for="title">Post title</label><span id="title-count">0 / 100</span></div><input id="title" type="text" maxlength="100" required placeholder="Write a title that stops the scroll" autocomplete="off" spellcheck="false"><label for="description">Caption & description</label><textarea id="description" rows="5" maxlength="5000" placeholder="Tell the story behind your video..."></textarea><label for="tags">YouTube tags <span class="optional">optional</span></label><input id="tags" placeholder="creativity, behind the scenes, ideas"><p class="field-help">Separate each tag with a comma. Add hashtags to your caption.</p></article>
 
-          <article class="card"><div class="card-title"><span class="step">03</span><h2>Add your video</h2><span class="optional" id="upload-limit">MP4</span></div><label class="dropzone" id="dropzone" for="video"><span class="upload-symbol">↑</span><strong>Drop your video here</strong><span>or choose an MP4 file to upload</span><span class="file-button">Browse files</span><input id="video" type="file" accept="video/mp4,.mp4" hidden></label><div id="upload-info" class="upload-info" hidden></div><p class="field-help">Facebook supports text posts without a video. YouTube requires a video upload.</p></article></div>
+          <article class="card"><div class="card-title"><span class="step">03</span><h2>Add your video</h2><span class="optional" id="upload-limit">MP4</span></div><label class="dropzone" id="dropzone" for="video"><span class="upload-symbol">↑</span><strong>Drop your video here</strong><span>or choose an MP4 file to upload</span><span class="file-button">Browse files</span><input id="video" type="file" accept="video/mp4,.mp4" hidden></label><div id="upload-progress" class="upload-progress" hidden><div class="upload-progress-heading"><span id="upload-stage" role="status" aria-live="polite">Chuẩn bị tải video</span><span id="upload-percent"></span></div><div class="progress-track"><span id="upload-bar" role="progressbar" aria-label="Tiến độ tải video" aria-valuemin="0" aria-valuemax="100"></span></div></div><div id="upload-info" class="upload-info" hidden></div><p class="field-help">Facebook supports text posts without a video. YouTube requires a video upload.</p></article></div>
 
           <aside class="composer-side"><article class="card preview-card"><div class="preview-label">LIVE PREVIEW <span class="preview-live-dot"></span></div><div class="preview-switcher" role="group" aria-label="Choose preview platform"><button type="button" id="preview-tab-youtube" class="preview-tab active" data-preview="youtube">YouTube Shorts</button><button type="button" class="preview-tab" data-preview="tiktok">TikTok</button><button type="button" class="preview-tab" data-preview="facebook">Facebook Reels</button></div><div class="video-preview" id="preview-placeholder"><span class="play-symbol">▷</span><span>Your video will appear here</span></div><video id="video-preview" controls hidden></video><div class="preview-meta"><span class="preview-avatar">S</span><div><strong id="preview-title">Your post title</strong><small id="preview-channel">Choose a channel to get started</small></div></div><p id="preview-description" class="preview-description">Your caption and hashtags will appear here.</p></article>
 
@@ -321,7 +322,7 @@
               <p class="publish-note">Chỉ xuất bản khi bạn xác nhận gửi vào hàng đợi.</p>
             </article></aside></div></form></section>
 
-        <section id="history-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">EVERY POST, ACCOUNTED FOR</span><h1>Posts<span class="heading-dot">.</span></h1><p>Follow each post from draft to delivery.</p></div><button class="secondary" id="refresh-posts">Refresh ↻</button></div><div class="stats history-stats"><article><span>All posts</span><strong id="stat-total">0</strong></article><article><span>In queue</span><strong id="stat-queued">0</strong></article><article><span>Delivered</span><strong id="stat-submitted">0</strong></article><article><span>Needs attention</span><strong id="stat-errors">0</strong></article></div><div class="history-toolbar"><label for="status-filter">Filter by status</label><select id="status-filter"><option value="all">All posts</option><option value="draft">Draft</option><option value="queued">Queued</option><option value="submitted">Delivered</option><option value="failed">Failed</option><option value="unknown">Needs review</option></select></div><div id="post-list"></div><p class="field-help">“Delivered” means the platform API returned a post ID. The platform may still be processing your video.</p></section>
+        <section id="tasks-view" class="view" hidden><div class="page-heading"><div><h1>Trung tâm tác vụ</h1><p>Theo dõi video từ Telegram, n8n và trình soạn bài. API đã nhận chưa có nghĩa video đã công khai.</p></div><button id="refresh-tasks" class="secondary">Làm mới</button></div><p id="tasks-feedback" role="status" aria-live="polite"></p><div id="tasks-list"></div><div class="task-pagination"><button id="tasks-prev" class="secondary">Trang trước</button><button id="tasks-next" class="secondary">Trang sau</button></div></section><section id="history-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">EVERY POST, ACCOUNTED FOR</span><h1>Posts<span class="heading-dot">.</span></h1><p>Follow each post from draft to delivery.</p></div><button class="secondary" id="refresh-posts">Refresh ↻</button></div><div class="stats history-stats"><article><span>All posts</span><strong id="stat-total">0</strong></article><article><span>In queue</span><strong id="stat-queued">0</strong></article><article><span>Delivered</span><strong id="stat-submitted">0</strong></article><article><span>Needs attention</span><strong id="stat-errors">0</strong></article></div><div class="history-toolbar"><label for="status-filter">Filter by status</label><select id="status-filter"><option value="all">All posts</option><option value="draft">Draft</option><option value="queued">Queued</option><option value="submitted">Delivered</option><option value="failed">Failed</option><option value="unknown">Needs review</option></select></div><div id="post-list"></div><p class="field-help">“Delivered” means the platform API returned a post ID. The platform may still be processing your video.</p></section>
 
         <section id="accounts-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">YOUR PUBLISHING DESTINATIONS</span><h1>Social accounts<span class="heading-dot">.</span></h1><p>Connect directly to each platform. We never ask for your password or cookies.</p></div></div><div id="provider-list" class="provider-grid"></div><article class="card connected-card"><div class="card-title"><h2>Connected accounts</h2><span class="optional" id="account-count">0 accounts</span></div><div id="connected-list"></div></article><article class="card environment-card"><h2>Your publishing infrastructure</h2><div id="environment-info"></div><p class="field-help">OAuth requires your own platform app credentials. Disconnecting here removes the token from this workspace; revoke access in your Google or Meta account settings to remove it completely.</p></article></section>
 
@@ -338,7 +339,7 @@
           <div class="analytics-filter-bar">
             <!-- Filter by Platform/Channel -->
             <div class="analytics-channel-filter">
-              <select id="analytics-platform-select" class="admin-select" style="padding:8px 12px; font-weight:600; border-radius:8px;">
+              <select aria-label="Lọc nền tảng phân tích" id="analytics-platform-select" class="admin-select" style="padding:8px 12px; font-weight:600; border-radius:8px;">
                 <option value="all">🌐 Tất cả nền tảng &amp; kênh</option>
                 <option value="youtube">▶ Kênh YouTube</option>
                 <option value="facebook">f Fanpage Facebook</option>
@@ -401,7 +402,7 @@
             </div>
           </div>
           <div class="chart-canvas-container" style="position:relative; height:280px; width:100%; margin-top:16px;">
-            <canvas id="analyticsChart"></canvas>
+            <p id="analytics-empty" class="chart-empty" role="status" hidden>Chưa có bài đăng trong khoảng thời gian và nền tảng đã chọn.</p><canvas id="analyticsChart" role="img" aria-label="Số bài gửi tới nền tảng theo ngày"></canvas>
           </div>
         </article>
 
@@ -409,14 +410,14 @@
         <article class="card analytics-posts-card" style="margin-top:20px;">
           <div class="section-heading">
             <div>
-              <h2>Thống kê chi tiết lượt xem bài đăng theo kênh &amp; nền tảng</h2>
-              <p>Chi tiết các bài đăng, định dạng, nền tảng xuất bản và chỉ số tương tác</p>
+              <h2>Chi tiết bài đăng theo kênh &amp; nền tảng</h2>
+              <p>Lịch sử gửi bài theo bộ lọc. Lượt xem chưa được đồng bộ từ nền tảng.</p>
             </div>
             <div class="analytics-table-filters" style="display:flex; gap:10px; align-items:center;">
-              <input type="text" id="analytics-search-posts" placeholder="Tìm theo tên bài..." style="max-width:200px; padding:6px 10px; font-size:12px;">
-              <select id="analytics-status-filter" class="admin-select" style="padding:6px 10px; font-size:12px;">
+              <input type="text" aria-label="Tìm bài đăng" id="analytics-search-posts" placeholder="Tìm theo tên bài..." style="max-width:200px; padding:6px 10px; font-size:12px;">
+              <select aria-label="Lọc trạng thái bài đăng" id="analytics-status-filter" class="admin-select" style="padding:6px 10px; font-size:12px;">
                 <option value="all">Tất cả trạng thái</option>
-                <option value="submitted">Thành công (Delivered)</option>
+                <option value="submitted">Đã gửi tới nền tảng</option>
                 <option value="queued">Đang xếp hàng (Queued)</option>
                 <option value="failed">Thất bại (Failed)</option>
               </select>

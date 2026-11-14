@@ -220,14 +220,15 @@ def create_app(config=None, engine=None, providers=None):
 
 
     def is_admin_session(session: dict) -> bool:
-        user_id = session.get('user_id')
-        if session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea'):
-            return True
         with db.connect() as c:
-            u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
-            if u and (u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com') or u.get('role') == 'admin'):
-                return True
-        return False
+            u = c.execute(select(users).where(users.c.id == session.get('user_id'))).mappings().first()
+        return bool(u and u['status'] == 'active' and u['role'] in ('admin', 'superadmin'))
+
+    def require_owner(session, row):
+        if not row:
+            raise HTTPException(404, 'Không tìm thấy dữ liệu.')
+        if row.get('user_id') != session.get('user_id') and not is_admin_session(session):
+            raise HTTPException(403, 'Bạn không có quyền truy cập dữ liệu này.')
 
     def require_admin(request: Request):
         session = require_session(request)
@@ -264,8 +265,11 @@ def create_app(config=None, engine=None, providers=None):
         d = dict(row)
 
         if not d.get('user_id'):
-
-            d['user_id'] = 'usr_owner_default'
+            raise HTTPException(401, 'Phiên cũ không hợp lệ. Đăng nhập lại.')
+        with db.connect() as c:
+            current_user = c.execute(select(users).where(users.c.id == d['user_id'])).mappings().first()
+        if not current_user or current_user['status'] != 'active':
+            raise HTTPException(401, 'Tài khoản không còn hoạt động.')
 
         return d
 
@@ -735,13 +739,13 @@ def create_app(config=None, engine=None, providers=None):
 
             u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
 
-        is_admin = session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea') or (u and u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com'))
+        is_admin = is_admin_session(session)
         user_info = {
             'id': user_id,
             'email': u['email'] if u else 'admin@toomi.vn',
             'name': u['name'] if u else 'Workspace Admin',
             'tier': u['tier'] if u else ('pro' if is_admin else 'free'),
-            'role': 'admin' if is_admin else 'user',
+            'role': u['role'] if u else 'user',
             'posts_limit': u['posts_limit'] if u else 999999
         }
 
@@ -1133,7 +1137,7 @@ def create_app(config=None, engine=None, providers=None):
 
             query = select(accounts.c.id, accounts.c.name, accounts.c.provider, accounts.c.external_id).where(accounts.c.active == True)
 
-            if user_id and session.get('role') != 'admin':
+            if user_id and not is_admin_session(session):
 
                 query = query.where(accounts.c.user_id == user_id)
 
@@ -1353,11 +1357,13 @@ def create_app(config=None, engine=None, providers=None):
 
     def get_media(media_id: str, request: Request):
 
-        require_session(request)
+        session = require_session(request)
 
         with db.connect() as c:
 
             row = c.execute(select(media).where(media.c.id == media_id)).mappings().first()
+
+        require_owner(session, row)
 
         if not row or not Path(row['path']).is_file():
 
@@ -1397,15 +1403,13 @@ def create_app(config=None, engine=None, providers=None):
 
         # Quota Validation: Check quota before queueing posts
 
-        if payload.action == 'queue':
 
-            validate_and_consume_quota(db, user_id, count=len(target_ids))
 
 
 
         with db.begin() as c:
 
-            existing = c.execute(select(posts.c.id).where(posts.c.batch_key == payload.batch_key)).scalars().all()
+            existing = c.execute(select(posts.c.id).where(posts.c.batch_key == payload.batch_key, posts.c.user_id == user_id)).scalars().all()
 
             if existing:
 
@@ -1419,7 +1423,12 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(400, 'Tài khoản không tồn tại hoặc đã ngắt kết nối.')
 
+            for destination in destinations:
+                require_owner(session, destination)
+
             file = c.execute(select(media).where(media.c.id == payload.media_id)).mappings().first() if payload.media_id else None
+            if payload.media_id:
+                require_owner(session, file)
 
             if payload.media_id and (not file or not Path(file['path']).is_file()):
 
@@ -1436,6 +1445,9 @@ def create_app(config=None, engine=None, providers=None):
                     if payload.shorts and (file['duration'] > 180 or file['width'] > file['height']):
 
                         raise HTTPException(400, 'Chế độ Shorts yêu cầu video dọc/vuông và tối đa 3 phút. Hãy chọn "Video thường / dài" để đăng video này lên YouTube.')
+
+            if payload.action == 'queue':
+                validate_and_consume_quota(db, user_id, count=len(target_ids), connection=c)
 
             ids = []
 
@@ -1482,7 +1494,7 @@ def create_app(config=None, engine=None, providers=None):
             query = select(posts, accounts.c.name.label('account_name'), accounts.c.provider)\
                 .join(accounts, accounts.c.id == posts.c.account_id)
 
-            if user_id and session.get('role') != 'admin':
+            if user_id and not is_admin_session(session):
 
                 query = query.where(or_(posts.c.user_id == user_id, accounts.c.user_id == user_id))
 
@@ -1508,9 +1520,7 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(404, 'Bài đăng không tồn tại.')
 
-            if post.get('user_id') and post['user_id'] != user_id and session.get('role') != 'admin':
-
-                raise HTTPException(403, 'Bạn không có quyền xóa bài đăng này.')
+            require_owner(session, post)
 
             c.execute(delete(posts).where(posts.c.id == post_id))
 
@@ -1526,9 +1536,7 @@ def create_app(config=None, engine=None, providers=None):
 
         user_id = session.get('user_id', 'usr_owner_default')
 
-        if action == 'queue':
 
-            validate_and_consume_quota(db, user_id, count=1)
 
         with db.begin() as c:
 
@@ -1540,6 +1548,7 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(409, 'Bài đã thay đổi trạng thái hoặc không thể thực hiện thao tác này.')
 
+            require_owner(session, row)
             account = c.execute(select(accounts).where(accounts.c.id == row['account_id'])).mappings().one()
 
             if action == 'queue' and not account['active']:
@@ -1555,10 +1564,15 @@ def create_app(config=None, engine=None, providers=None):
             if result.rowcount != 1:
 
                 raise HTTPException(409, 'Bài vừa được xử lý ở nơi khác.')
+            if action == 'queue':
+                validate_and_consume_quota(db, user_id, count=1, connection=c)
 
         return {'ok': True}
 
 
+
+    from app.tasks import register_tasks
+    register_tasks(app, db, require_session, mutation_auth, is_admin_session)
 
     root = Path(__file__).parent / 'static'
 

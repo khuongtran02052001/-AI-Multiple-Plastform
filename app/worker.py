@@ -80,32 +80,33 @@ def process_one(engine, providers, vault, settings=None):
         with engine.begin() as c:
             c.execute(update(posts).where(posts.c.id == post_id).values(status='submitted',
                 remote_id=remote_id, remote_url=url, error=None, lease_until=None, updated_at=now))
-            if ingest_id:
-                c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
 
-        update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, 100, step_index=4,
+        notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, 100, step_index=4,
                                  video_title=post['title'], youtube_url=url)
+        if ingest_id and notified:
+            with engine.begin() as c:
+                c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
 
     except PublishError as exc:
         now = time.time()
-        update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
+        notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
                                  error_message=str(exc))
         with engine.begin() as c:
             c.execute(update(posts).where(posts.c.id == post_id).values(
                 status='unknown' if exc.uncertain else 'failed', error=str(exc),
                 lease_until=None, updated_at=now))
-            if ingest_id:
+            if ingest_id and notified:
                 c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
     except Exception as exc:
         now = time.time()
         logger.error('Job interrupted; marked unknown. Check the platform before retrying.')
-        update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
+        notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
                                  error_message="Lỗi gián đoạn khi xuất bản. Kiểm tra kênh YouTube trước khi thử lại.")
         with engine.begin() as c:
             c.execute(update(posts).where(posts.c.id == post_id).values(status='unknown',
                 error='Không xác định được kết quả. Kiểm tra trực tiếp trên nền tảng.',
                 lease_until=None, updated_at=now))
-            if ingest_id:
+            if ingest_id and notified:
                 c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
     finally:
         heartbeat_stop.set()
@@ -179,9 +180,10 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
         now = time.time()
         with engine.begin() as c:
             post_id = new_id()
+            file['user_id'] = job.get('user_id')
             c.execute(media.insert().values(**file))
             c.execute(posts.insert().values(
-                id=post_id, batch_key=job['request_key'], account_id=job['account_id'],
+                id=post_id, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=job['account_id'],
                 media_id=file['id'], title=title, description=description,
                 tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy=privacy, made_for_kids=job['made_for_kids'],
                 shorts=shorts,
@@ -200,13 +202,13 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
                 Path(file['path']).unlink(missing_ok=True)
             except OSError:
                 pass
-        logger.error('Video import failed for ingestion job: %s', exc)
-        update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, -1, step_index=2,
-                                 error_message=f"Lỗi tải video TikTok: {exc}")
+        logger.error('Video import failed for ingestion job.')
+        notified = update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, -1, step_index=2,
+                                 error_message='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.')
         with engine.begin() as c:
             c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
-                status='failed', error=f'Không lấy được video hợp lệ: {exc}',
-                lease_until=None, updated_at=now, notified_at=now))
+                status='failed', error='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.',
+                lease_until=None, updated_at=now, notified_at=now if notified else None))
     return True
 
 

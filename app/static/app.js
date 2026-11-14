@@ -231,30 +231,6 @@ async function renderApiKeys() {
 function showPricingModal() {
   const modal = $('modal-pricing');
   if (!modal) return;
-
-  const user = state.user;
-  const userIdent = (user?.email ? user.email.split('@')[0] : (user?.id ? user.id.replace('usr_', '').slice(0, 8) : 'PRO')).toUpperCase();
-  const syntax = `OP ${userIdent}`;
-  $('transfer-syntax').textContent = syntax;
-
-  const bankName = state.config?.bank_name || 'MBBank (Quân Đội)';
-  const accountNo = state.config?.bank_account_no || '0335888888';
-  const accountName = state.config?.bank_account_name || 'TOOMI VN';
-  const price = state.config?.pro_plan_price || 99000;
-  const priceFormatted = Number(price).toLocaleString('vi-VN') + 'đ';
-
-  const bNameEl = document.getElementById('pricing-bank-name');
-  if (bNameEl) bNameEl.textContent = bankName;
-  const bAccEl = document.getElementById('pricing-bank-account');
-  if (bAccEl) bAccEl.textContent = accountNo;
-  const bOwnerEl = document.getElementById('pricing-bank-owner');
-  if (bOwnerEl) bOwnerEl.textContent = accountName;
-  const bAmountEl = document.getElementById('pricing-amount');
-  if (bAmountEl) bAmountEl.textContent = priceFormatted;
-
-  const qrUrl = `https://img.vietqr.io/image/MB-${accountNo}-compact2.png?amount=${price}&addInfo=${encodeURIComponent(syntax)}&accountName=${encodeURIComponent(accountName)}`;
-  $('pricing-qr-img').src = qrUrl;
-
   modal.hidden = false;
 }
 
@@ -387,59 +363,76 @@ const disconnect=el('button','text-button','Disconnect');disconnect.type='button
 }
 
 function renderDashboard() {
+  const published = (state.posts || []).filter(p => p.status === 'submitted').length;
+  const queued = (state.posts || []).filter(p => ['queued', 'posting'].includes(p.status)).length;
 
-  const published=state.posts.filter(p=>p.status==='submitted').length;
+  if ($('dash-published')) $('dash-published').textContent = published;
+  if ($('dash-queued')) $('dash-queued').textContent = queued;
+  if ($('analytics-published')) $('analytics-published').textContent = published;
+  if ($('analytics-total-published')) $('analytics-total-published').textContent = published;
+  if ($('dash-accounts')) $('dash-accounts').textContent = (state.accounts || []).length;
 
-  const queued=state.posts.filter(p=>['queued','posting'].includes(p.status)).length;
-
-  $('dash-published').textContent=published;
-
-  $('dash-queued').textContent=queued;
-
-  $('analytics-published').textContent=published;
-
-  $('dash-accounts').textContent=state.accounts.length;
-
-  const sampleProcessing=!queued&&/demo/i.test(state.config.database||'');
-
-  $('processing-label').textContent=queued?`${queued} post${queued===1?'':'s'} in the publishing queue`:sampleProcessing?'Sample TikTok ingestion · converting to 9:16':'Waiting for your next post';
-
-  $('processing-percent').textContent=queued?'In queue':sampleProcessing?'65% · Demo':'Ready';
-
-  const progress=$('processing-progress');
-
-  progress.style.width=sampleProcessing?'65%':'0%';
-
-  progress.setAttribute('aria-valuenow',sampleProcessing?'65':'0');
-
-  progress.setAttribute('aria-label',sampleProcessing?'Demo video ingestion progress':'Publishing queue progress');
-
-  $('processing-foot').textContent=queued?'Your publishing worker will process these posts':sampleProcessing?'Illustrative progress only · no live media job is running':'Your channels are standing by';
-
-  const channels=$('dashboard-channels');channels.replaceChildren();
-
-  for(const provider of ['youtube','facebook']) {
-
-    const matched=state.accounts.filter(a=>a.provider===provider);
-
-    const row=el('div','channel-summary');row.append(icon(provider));
-
-    const copy=el('span');copy.append(el('strong','',provider==='youtube'?'YouTube':'Facebook Pages'),el('small','',matched.length?matched.map(a=>a.name).join(', '):'Not connected'));
-
-    row.append(copy,el('span','channel-status',matched.length?'Connected':'—'));channels.append(row);
-
+  const sampleProcessing = !queued && /demo/i.test(state.config?.database || '');
+  if ($('processing-label')) {
+    $('processing-label').textContent = queued ? `${queued} post${queued === 1 ? '' : 's'} in the publishing queue` : sampleProcessing ? 'Sample TikTok ingestion · converting to 9:16' : 'Waiting for your next post';
+  }
+  if ($('processing-percent')) {
+    $('processing-percent').textContent = queued ? 'In queue' : sampleProcessing ? '65% · Demo' : 'Ready';
+  }
+  const progress = $('processing-progress');
+  if (progress) {
+    progress.style.width = sampleProcessing ? '65%' : '0%';
+    progress.setAttribute('aria-valuenow', sampleProcessing ? '65' : '0');
+    progress.setAttribute('aria-label', sampleProcessing ? 'Demo video ingestion progress' : 'Publishing queue progress');
+  }
+  if ($('processing-foot')) {
+    $('processing-foot').textContent = queued ? 'Your publishing worker will process these posts' : sampleProcessing ? 'Illustrative progress only · no live media job is running' : 'Your channels are standing by';
   }
 
-  const target=$('dashboard-posts');target.replaceChildren();
+  const dDate = $('dashboard-date');
+  if (dDate) {
+    dDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+  }
 
-  const recent=state.posts.slice(0,4);
+  const channels = $('dashboard-channels');
+  if (channels) {
+    channels.replaceChildren();
+    for (const provider of ['youtube', 'facebook']) {
+      const matched = (state.accounts || []).filter(a => a.provider === provider);
+      const row = el('div', 'channel-summary');
+      row.append(icon(provider));
+      const copy = el('span');
+      copy.append(el('strong', '', platformName(provider)), el('small', '', matched.length ? `${matched.length} connected` : 'Not connected'));
+      row.append(copy, el('span', 'channel-status', matched.length ? 'Connected' : '—'));
+      channels.append(row);
+    }
+  }
 
-  if(!recent.length){const blank=el('div','empty-state');blank.append(el('strong','', 'Your publishing story starts here'),el('p','', 'Once you create a post, its progress will show up here.'));const create=el('button','secondary','Create your first post');create.type='button';create.dataset.view='compose';blank.append(create);target.append(blank);}
+  const target = $('dashboard-posts');
+  if (target) {
+    target.replaceChildren();
+    const recent = (state.posts || []).slice(0, 4);
+    if (!recent.length) {
+      const blank = el('div', 'empty-state');
+      blank.append(el('strong', '', 'Your publishing story starts here'), el('p', '', 'Once you create a post, its progress will show up here.'));
+      const create = el('button', 'secondary', 'Create your first post');
+      create.type = 'button';
+      create.dataset.view = 'compose';
+      blank.append(create);
+      target.append(blank);
+    } else {
+      for (const post of recent) {
+        const row = el('div', 'dashboard-post-row');
+        row.append(icon(post.provider));
+        const copy = el('div', 'dashboard-post-copy');
+        copy.append(el('strong', '', post.title), el('small', '', `${post.account_name} · ${new Date(post.created_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`));
+        row.append(copy, el('span', `status ${post.status}`, labels[post.status] || post.status));
+        target.append(row);
+      }
+    }
+  }
 
-  for(const post of recent){const row=el('div','dashboard-post-row');row.append(icon(post.provider));const copy=el('div','dashboard-post-copy');copy.append(el('strong','',post.title),el('small','',`${post.account_name} · ${new Date(post.created_at*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`));row.append(copy,el('span',`status ${post.status}`,labels[post.status]||post.status));target.append(row);}
-
-  renderCalendar();
-
+  if (typeof renderCalendar === 'function') renderCalendar();
 }
 
 function renderCalendar() {
@@ -527,16 +520,19 @@ async function refreshPosts(){state.posts=await api('/api/posts');renderPosts();
 async function load(){[state.config,state.accounts,state.quota]=await Promise.all([api('/api/config'),api('/api/accounts'),api('/api/user/quota')]);renderAccounts();renderQuota();await refreshPosts();}
 
 async function enter(userProfile){
-
   if (userProfile) state.user = userProfile;
-
-  await load();
-
-  $('login-screen').hidden=true;
-
-  $('workspace').hidden=false;
-
-  renderUserProfile();
+  if ($('login-screen')) $('login-screen').hidden = true;
+  if ($('workspace')) $('workspace').hidden = false;
+  try {
+    await load();
+  } catch (err) {
+    console.warn('load() warning:', err);
+  }
+  try {
+    if (typeof renderUserProfile === 'function') renderUserProfile();
+  } catch (err) {
+    console.warn('renderUserProfile() warning:', err);
+  }
 
 const connection=new URLSearchParams(location.search).get('connection');if(connection){notice(connection==='success'?'Account connected.':'Authorization cancelled.');history.replaceState({},'',location.pathname);}
 

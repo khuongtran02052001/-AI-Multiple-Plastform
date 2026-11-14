@@ -229,6 +229,12 @@ def create_app(config=None, engine=None, providers=None):
                 return True
         return False
 
+    def require_owner(session, row):
+        if not row:
+            raise HTTPException(404, 'Không tìm thấy dữ liệu.')
+        if row.get('user_id') != session.get('user_id') and not is_admin_session(session):
+            raise HTTPException(403, 'Bạn không có quyền truy cập dữ liệu này.')
+
     def require_admin(request: Request):
         session = require_session(request)
         if not is_admin_session(session):
@@ -1353,11 +1359,13 @@ def create_app(config=None, engine=None, providers=None):
 
     def get_media(media_id: str, request: Request):
 
-        require_session(request)
+        session = require_session(request)
 
         with db.connect() as c:
 
             row = c.execute(select(media).where(media.c.id == media_id)).mappings().first()
+
+        require_owner(session, row)
 
         if not row or not Path(row['path']).is_file():
 
@@ -1405,7 +1413,7 @@ def create_app(config=None, engine=None, providers=None):
 
         with db.begin() as c:
 
-            existing = c.execute(select(posts.c.id).where(posts.c.batch_key == payload.batch_key)).scalars().all()
+            existing = c.execute(select(posts.c.id).where(posts.c.batch_key == payload.batch_key, posts.c.user_id == user_id)).scalars().all()
 
             if existing:
 
@@ -1419,7 +1427,12 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(400, 'Tài khoản không tồn tại hoặc đã ngắt kết nối.')
 
+            for destination in destinations:
+                require_owner(session, destination)
+
             file = c.execute(select(media).where(media.c.id == payload.media_id)).mappings().first() if payload.media_id else None
+            if payload.media_id:
+                require_owner(session, file)
 
             if payload.media_id and (not file or not Path(file['path']).is_file()):
 
@@ -1508,9 +1521,7 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(404, 'Bài đăng không tồn tại.')
 
-            if post.get('user_id') and post['user_id'] != user_id and session.get('role') != 'admin':
-
-                raise HTTPException(403, 'Bạn không có quyền xóa bài đăng này.')
+            require_owner(session, post)
 
             c.execute(delete(posts).where(posts.c.id == post_id))
 
@@ -1540,6 +1551,7 @@ def create_app(config=None, engine=None, providers=None):
 
                 raise HTTPException(409, 'Bài đã thay đổi trạng thái hoặc không thể thực hiện thao tác này.')
 
+            require_owner(session, row)
             account = c.execute(select(accounts).where(accounts.c.id == row['account_id'])).mappings().one()
 
             if action == 'queue' and not account['active']:

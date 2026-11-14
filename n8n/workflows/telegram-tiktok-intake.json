@@ -57,7 +57,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Validate publish command').item.json.telegram_chat_id }}",
-        "text": "={{ 'Publisher đã nhận yêu cầu. Mã công việc: ' + $json.id + '. Trạng thái: ' + $json.status + ($json.deduplicated ? ' (yêu cầu trùng đã được gộp).' : '.') }}",
+        "text": "={{ 'Publisher đã nhận yêu cầu. Mã công việc: ' + $json.id + '. Trạng thái: ' + $json.status + ($json.deduplicated ? ' (yêu cầu trùng đã được gộp).' : '.') + '\n\n👉 Xem tiến độ: https://publisher.toomi.vn/ (Trung tâm tác vụ)' }}",
         "additionalFields": {}
       },
       "id": "ack-tg",

@@ -35,7 +35,8 @@ def build_status_message(source_url: str, label: str, percent: int, step_index: 
             f"❌ <b>XUẤT BẢN THẤT BẠI [{label}]</b>\n"
             f"🔗 {source_url}\n\n"
             f"Tiến độ: {bar} <b>LỖI</b>\n\n"
-            f"⚠️ <b>Chi tiết lỗi:</b> {error_message}"
+            f"⚠️ <b>Chi tiết lỗi:</b> {error_message}\n\n"
+            f"📋 <b>Xem chi tiết:</b> <a href='https://publisher.toomi.vn/'>Trung tâm tác vụ</a>"
         )
 
     bar = get_colored_progress_bar(percent)
@@ -62,14 +63,16 @@ def build_status_message(source_url: str, label: str, percent: int, step_index: 
             f"Tiến độ: {bar} <b>100%</b>\n\n"
             f"{steps_block}"
             f"{title_line}"
-            f"{yt_line}"
+            f"{yt_line}\n"
+            f"📋 <b>Quản lý tác vụ:</b> <a href='https://publisher.toomi.vn/'>Trung tâm tác vụ</a>"
         )
 
     return (
         f"⏳ <b>ĐANG XỬ LÝ [{label}]</b>\n"
         f"🔗 {source_url}\n\n"
         f"Tiến độ: {bar} <b>{percent}%</b>\n\n"
-        f"{steps_block}"
+        f"{steps_block}\n\n"
+        f"📋 <b>Theo dõi tại:</b> <a href='https://publisher.toomi.vn/'>Trung tâm tác vụ</a>"
     )
 
 

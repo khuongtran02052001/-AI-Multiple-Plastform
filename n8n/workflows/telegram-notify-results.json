@@ -56,7 +56,7 @@
     {
       "parameters": {
         "chatId": "={{ $json.chat_id }}",
-        "text": "={{ $json.status === 'submitted' ? 'YouTube đã nhận video: ' + ($json.remote_url || 'Kiểm tra YouTube Studio') : 'Publisher: ' + $json.status + '. ' + ($json.error || 'Cần kiểm tra trực tiếp trên nền tảng trước khi thử lại.') }}",
+        "text": "={{ ($json.status === 'submitted' ? 'YouTube đã nhận video: ' + ($json.remote_url || 'Kiểm tra YouTube Studio') : 'Publisher: ' + $json.status + '. ' + ($json.error || 'Cần kiểm tra trực tiếp trên nền tảng trước khi thử lại.')) + '\n\n👉 Chi tiết: https://publisher.toomi.vn/ (Trung tâm tác vụ)' }}",
         "additionalFields": {}
       },
       "id": "send-result",

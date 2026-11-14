@@ -4,6 +4,7 @@ Enforces 10 posts/month limit for Free tier, with instant upgrades for Pro/Agenc
 """
 from datetime import datetime, timezone
 import time
+from contextlib import nullcontext
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from app.db import users, usage_quotas, new_id
@@ -72,7 +73,7 @@ def get_user_quota(engine, user_id: str) -> dict:
     }
 
 
-def validate_and_consume_quota(engine, user_id: str, count: int = 1) -> dict:
+def validate_and_consume_quota(engine, user_id: str, count: int = 1, *, connection=None) -> dict:
     """Atomic quota check & consumption.
 
     Raises HTTP 429 if limit is reached on Free tier.
@@ -83,8 +84,12 @@ def validate_and_consume_quota(engine, user_id: str, count: int = 1) -> dict:
     cycle = get_current_cycle()
     now = time.time()
 
-    with engine.begin() as c:
-        u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
+    with (nullcontext(connection) if connection is not None else engine.begin()) as c:
+        # Lock the user before reading/creating the monthly row, including its first insert.
+        query = select(users).where(users.c.id == user_id)
+        if c.dialect.name == 'postgresql':
+            query = query.with_for_update()
+        u = c.execute(query).mappings().first()
         if not u:
             raise HTTPException(404, 'Không tìm thấy tài khoản người dùng.')
 

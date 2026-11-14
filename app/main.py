@@ -270,8 +270,11 @@ def create_app(config=None, engine=None, providers=None):
         d = dict(row)
 
         if not d.get('user_id'):
-
-            d['user_id'] = 'usr_owner_default'
+            raise HTTPException(401, 'Phiên cũ không hợp lệ. Đăng nhập lại.')
+        with db.connect() as c:
+            current_user = c.execute(select(users).where(users.c.id == d['user_id'])).mappings().first()
+        if not current_user or current_user['status'] != 'active':
+            raise HTTPException(401, 'Tài khoản không còn hoạt động.')
 
         return d
 
@@ -1405,9 +1408,7 @@ def create_app(config=None, engine=None, providers=None):
 
         # Quota Validation: Check quota before queueing posts
 
-        if payload.action == 'queue':
 
-            validate_and_consume_quota(db, user_id, count=len(target_ids))
 
 
 
@@ -1449,6 +1450,9 @@ def create_app(config=None, engine=None, providers=None):
                     if payload.shorts and (file['duration'] > 180 or file['width'] > file['height']):
 
                         raise HTTPException(400, 'Chế độ Shorts yêu cầu video dọc/vuông và tối đa 3 phút. Hãy chọn "Video thường / dài" để đăng video này lên YouTube.')
+
+            if payload.action == 'queue':
+                validate_and_consume_quota(db, user_id, count=len(target_ids), connection=c)
 
             ids = []
 
@@ -1537,9 +1541,7 @@ def create_app(config=None, engine=None, providers=None):
 
         user_id = session.get('user_id', 'usr_owner_default')
 
-        if action == 'queue':
 
-            validate_and_consume_quota(db, user_id, count=1)
 
         with db.begin() as c:
 
@@ -1567,6 +1569,8 @@ def create_app(config=None, engine=None, providers=None):
             if result.rowcount != 1:
 
                 raise HTTPException(409, 'Bài vừa được xử lý ở nơi khác.')
+            if action == 'queue':
+                validate_and_consume_quota(db, user_id, count=1, connection=c)
 
         return {'ok': True}
 

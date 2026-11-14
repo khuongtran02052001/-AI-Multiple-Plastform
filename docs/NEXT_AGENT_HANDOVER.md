@@ -21,3 +21,10 @@ Added browser media-read, post-create destination/media ownership checks, post-a
 
 ## Checks / limitations
 See UI_UX_REVIEW_20261114.md and PR checks for completed validation. Source audit only, no cross-user production access attempted. Existing authentication and quota findings remain release blockers for opening multi-user service access. Production may change independently: inspect branch/VPS state before deploying.
+
+## Update: quota transaction and session enforcement
+- Browser post creation now charges quota AFTER destination/media validation and idempotency checks, within the same DB transaction as insertion. Queue action charges inside its state-update transaction; a quota failure rolls back the update.
+- Quota accepts an existing SQLAlchemy connection and locks the PostgreSQL user row before first-month-row creation/check/update. Standalone callers retain their own transaction.
+- Existing sessions now reject missing/disabled users and sessions without user identity; no implicit owner fallback.
+- Added regression coverage for disabled sessions and quota rollback with parent transaction. All changes remain on PR #6, not production.
+- STILL OPEN: persistent admin-role migration/hardcoded admin grants, audit every API-key ingestion path for transaction consistency, real PostgreSQL concurrency tests, provider reconciliation, pagination and admin audit trail. Do not describe this as a complete security fix.

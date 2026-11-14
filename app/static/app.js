@@ -366,7 +366,7 @@ function renderAccounts() {
       }
       body.append(chList);
 
-      if (['youtube', 'facebook'].includes(provider)) {
+      if (['youtube', 'facebook', 'tiktok'].includes(provider)) {
         const addMore = el('button', 'text-button add-more-btn', '＋ Kết nối thêm kênh khác');
         addMore.type = 'button';
         addMore.onclick = async () => {
@@ -392,7 +392,7 @@ function renderAccounts() {
         pinterest: 'Ghim video lên các bảng tin Pinterest.'
       };
       body.append(el('p', 'provider-desc', descriptions[provider] || ''));
-      const button = el('button', 'secondary', ready ? 'Connect account ↗' : (['youtube', 'facebook'].includes(provider) ? 'Cần cấu hình OAuth' : 'Sắp ra mắt'));
+      const button = el('button', 'secondary', ready ? 'Connect account ↗' : (['youtube', 'facebook', 'tiktok'].includes(provider) ? 'Cần cấu hình OAuth' : 'Sắp ra mắt'));
       button.disabled = !ready;
       button.onclick = async () => {
         button.disabled = true;
@@ -405,7 +405,7 @@ function renderAccounts() {
         }
       };
       body.append(button);
-      if (!ready && ['youtube', 'facebook'].includes(provider)) {
+      if (!ready && ['youtube', 'facebook', 'tiktok'].includes(provider)) {
         body.append(el('p', 'field-help', 'Thêm cấu hình OAuth trong file .env để kích hoạt kết nối.'));
       }
     }
@@ -464,7 +464,7 @@ function renderDashboard() {
   const channels = $('dashboard-channels');
   if (channels) {
     channels.replaceChildren();
-    for (const provider of ['youtube', 'facebook']) {
+    for (const provider of ['youtube', 'facebook', 'tiktok']) {
       const matched = (state.accounts || []).filter(a => a.provider === provider);
       const row = el('div', 'channel-summary');
       row.append(icon(provider));

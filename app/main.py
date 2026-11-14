@@ -1,3 +1,4 @@
+from __future__ import annotations
 import base64
 import hashlib
 from urllib.parse import urlencode
@@ -1126,23 +1127,14 @@ def create_app(config=None, engine=None, providers=None):
 
 
     @app.get('/api/accounts')
-
-    def list_accounts(request: Request):
-
+    def list_accounts(request: Request, all: bool = False):
         session = require_session(request)
-
         user_id = session.get('user_id')
-
         with db.connect() as c:
-
             query = select(accounts.c.id, accounts.c.name, accounts.c.provider, accounts.c.external_id).where(accounts.c.active == True)
-
-            if user_id and not is_admin_session(session):
-
+            if not (all and is_admin_session(session)):
                 query = query.where(accounts.c.user_id == user_id)
-
             rows = c.execute(query.order_by(accounts.c.created_at)).mappings().all()
-
         return [dict(r) for r in rows]
 
 

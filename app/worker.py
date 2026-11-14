@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import threading
 import time
@@ -13,12 +14,18 @@ import json
 logger = logging.getLogger('publisher.worker')
 
 
-def _get_label(shorts_mode: str) -> str:
+def _get_label(shorts_mode: str, target_platform: str = 'youtube', privacy: str = 'public') -> str:
+    if privacy == 'private':
+        return '🔒 YouTube Riêng tư'
+    if target_platform == 'both':
+        return '🚀 YouTube Shorts & FB Reels' if shorts_mode == 'short' else '🚀 YouTube & Facebook'
+    if target_platform == 'facebook':
+        return '🔵 Facebook Reels' if shorts_mode == 'short' else '🔵 Facebook Video'
     if shorts_mode == 'short':
-        return '📱 Short (Công khai)'
+        return '🔴 YouTube Shorts'
     if shorts_mode == 'video':
-        return '🎬 Video dài (Công khai)'
-    return '🔒 Riêng tư (Private)'
+        return '🔴 YouTube Video'
+    return '🔴 YouTube'
 
 
 def process_one(engine, providers, vault, settings=None):
@@ -58,7 +65,10 @@ def process_one(engine, providers, vault, settings=None):
             chat_id = ingest_row.get('telegram_chat_id')
             msg_id = ingest_row.get('telegram_message_id')
             source_url = ingest_row.get('source_url', '')
-            label = _get_label(ingest_row.get('shorts_mode') or 'auto')
+            target_platform = ingest_row.get('target_platform') or 'youtube'
+            label = _get_label(ingest_row.get('shorts_mode') or 'auto', target_platform, ingest_row.get('privacy') or 'public')
+        else:
+            target_platform = 'youtube'
 
         if not account['active']:
             raise PublishError('Tài khoản đã ngắt kết nối.')
@@ -71,7 +81,7 @@ def process_one(engine, providers, vault, settings=None):
             with engine.begin() as c:
                 c.execute(update(accounts).where(accounts.c.id == account['id']).values(tokens=vault.encrypt(tokens)))
 
-        update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, 85, step_index=4)
+        update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, 85, step_index=4, target_platform=target_platform)
 
         remote_id, url = providers.publish(account, tokens, post, file)
         if post.get('shorts') and account['provider'] == 'youtube':
@@ -81,16 +91,31 @@ def process_one(engine, providers, vault, settings=None):
             c.execute(update(posts).where(posts.c.id == post_id).values(status='submitted',
                 remote_id=remote_id, remote_url=url, error=None, lease_until=None, updated_at=now))
 
-        notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, 100, step_index=4,
-                                 video_title=post['title'], youtube_url=url)
-        if ingest_id and notified:
-            with engine.begin() as c:
-                c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
+            # Multi-channel batch check
+            batch_posts = c.execute(select(posts).where(posts.c.batch_key == post['batch_key'])).mappings().all()
+            pending_batch = [p for p in batch_posts if p['status'] in ('queued', 'posting')]
+            submitted_batch = [p for p in batch_posts if p['status'] == 'submitted']
+
+            if not pending_batch:
+                yt_link = next((p['remote_url'] for p in submitted_batch if 'youtube.com' in (p['remote_url'] or '')), '')
+                fb_link = next((p['remote_url'] for p in submitted_batch if 'facebook.com' in (p['remote_url'] or '')), '')
+                notified = update_telegram_progress(
+                    bot_token, chat_id, msg_id, source_url, label, 100, step_index=4,
+                    video_title=post['title'], youtube_url=yt_link, facebook_url=fb_link,
+                    target_platform=target_platform
+                )
+                if ingest_id and notified:
+                    c.execute(update(ingests).where(ingests.c.id == ingest_id).values(notified_at=now))
+            else:
+                update_telegram_progress(
+                    bot_token, chat_id, msg_id, source_url, label, 85, step_index=4,
+                    target_platform=target_platform, file_info=f"Đã đăng lên {account['provider']}, đang tiếp tục..."
+                )
 
     except PublishError as exc:
         now = time.time()
         notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
-                                 error_message=str(exc))
+                                 target_platform=target_platform, error_message=str(exc))
         with engine.begin() as c:
             c.execute(update(posts).where(posts.c.id == post_id).values(
                 status='unknown' if exc.uncertain else 'failed', error=str(exc),
@@ -101,7 +126,7 @@ def process_one(engine, providers, vault, settings=None):
         now = time.time()
         logger.error('Job interrupted; marked unknown. Check the platform before retrying.')
         notified = update_telegram_progress(bot_token, chat_id, msg_id, source_url, label, -1, step_index=4,
-                                 error_message="Lỗi gián đoạn khi xuất bản. Kiểm tra kênh YouTube trước khi thử lại.")
+                                 target_platform=target_platform, error_message="Lỗi gián đoạn khi xuất bản. Kiểm tra kênh trước khi thử lại.")
         with engine.begin() as c:
             c.execute(update(posts).where(posts.c.id == post_id).values(status='unknown',
                 error='Không xác định được kết quả. Kiểm tra trực tiếp trên nền tảng.',
@@ -137,12 +162,13 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
         source_url = job.get('source_url', '')
         privacy = job.get('privacy') or 'private'
         shorts_mode = job.get('shorts_mode') or 'auto'
-        label = _get_label(shorts_mode)
+        target_platform = job.get('target_platform') or 'youtube'
+        label = _get_label(shorts_mode, target_platform, privacy)
 
-        if not account['active'] or account['provider'] != 'youtube':
-            raise DownloadError('Kênh YouTube đã ngắt kết nối hoặc không hợp lệ.')
+        if not account['active'] or account['provider'] not in ('youtube', 'facebook'):
+            raise DownloadError('Kênh đã ngắt kết nối hoặc không hợp lệ.')
 
-        update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, 35, step_index=2)
+        update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, 35, step_index=2, target_platform=target_platform)
 
         file = downloader(settings, job['source_url'])
         source = file.pop('source_metadata', {})
@@ -158,7 +184,7 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
             if not is_vertical:
                 update_telegram_progress(
                     settings.telegram_bot_token, chat_id, msg_id, source_url, label, 50, step_index=3,
-                    file_info="Chuyển sang 9:16 Shorts..."
+                    file_info="Chuyển sang 9:16 Shorts/Reels...", target_platform=target_platform
                 )
                 from app.tiktok_ingest import convert_to_vertical_short
                 file = convert_to_vertical_short(file)
@@ -178,22 +204,63 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
             shorts = is_short_duration and is_vertical
 
         now = time.time()
+        file['user_id'] = job.get('user_id')
         with engine.begin() as c:
-            post_id = new_id()
-            file['user_id'] = job.get('user_id')
             c.execute(media.insert().values(**file))
-            c.execute(posts.insert().values(
-                id=post_id, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=job['account_id'],
-                media_id=file['id'], title=title, description=description,
-                tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy=privacy, made_for_kids=job['made_for_kids'],
-                shorts=shorts,
-                status='queued', scheduled_at=job['scheduled_at'], created_at=now,
-                updated_at=now))
-            c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
-                status='queued', post_id=post_id, error=None, lease_until=None, updated_at=now))
+
+            if target_platform == 'both':
+                user_accounts = c.execute(select(accounts).where(
+                    accounts.c.user_id == job.get('user_id'),
+                    accounts.c.active == True
+                )).mappings().all()
+                yt_acc = next((a for a in user_accounts if a['provider'] == 'youtube'), None)
+                if not yt_acc and settings.automation_youtube_account_id:
+                    yt_acc = c.execute(select(accounts).where(
+                        accounts.c.id == settings.automation_youtube_account_id,
+                        accounts.c.provider == 'youtube',
+                        accounts.c.active == True
+                    )).mappings().first()
+                fb_acc = next((a for a in user_accounts if a['provider'] == 'facebook'), None)
+
+                post_ids = []
+                if yt_acc:
+                    pid_yt = new_id()
+                    post_ids.append(pid_yt)
+                    c.execute(posts.insert().values(
+                        id=pid_yt, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=yt_acc['id'],
+                        media_id=file['id'], title=title, description=description,
+                        tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy=privacy, made_for_kids=job['made_for_kids'],
+                        shorts=shorts,
+                        status='queued', scheduled_at=job['scheduled_at'], created_at=now,
+                        updated_at=now))
+                if fb_acc:
+                    pid_fb = new_id()
+                    post_ids.append(pid_fb)
+                    c.execute(posts.insert().values(
+                        id=pid_fb, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=fb_acc['id'],
+                        media_id=file['id'], title=title, description=description,
+                        tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy='public', made_for_kids=False,
+                        shorts=shorts,
+                        status='queued', scheduled_at=job['scheduled_at'], created_at=now,
+                        updated_at=now))
+
+                primary_pid = post_ids[0] if post_ids else None
+                c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
+                    status='queued', post_id=primary_pid, error=None, lease_until=None, updated_at=now))
+            else:
+                post_id = new_id()
+                c.execute(posts.insert().values(
+                    id=post_id, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=job['account_id'],
+                    media_id=file['id'], title=title, description=description,
+                    tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy=privacy, made_for_kids=job['made_for_kids'],
+                    shorts=shorts,
+                    status='queued', scheduled_at=job['scheduled_at'], created_at=now,
+                    updated_at=now))
+                c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
+                    status='queued', post_id=post_id, error=None, lease_until=None, updated_at=now))
 
         update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, 65, step_index=3,
-                                 file_info=file_info_note)
+                                 file_info=file_info_note, target_platform=target_platform)
 
     except Exception as exc:
         now = time.time()
@@ -204,7 +271,7 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
                 pass
         logger.error('Video import failed for ingestion job.')
         notified = update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, -1, step_index=2,
-                                 error_message='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.')
+                                 target_platform=target_platform, error_message='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.')
         with engine.begin() as c:
             c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
                 status='failed', error='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.',

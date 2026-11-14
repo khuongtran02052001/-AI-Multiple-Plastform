@@ -26,3 +26,23 @@ def test_notification_only_confirms_actual_api_success(monkeypatch, caplog):
     Response.status_code = 500
     assert update_telegram_progress('test-token', '1', '2', '', '', 100, 4) is False
     assert 'test-token' not in caplog.text
+
+
+def test_telegram_status_message_multi_platform():
+    # Facebook test
+    fb_text = build_status_message('https://www.tiktok.com/test', '🔵 Facebook Reels', 100, 4,
+                                   video_title='FB Video', facebook_url='https://www.facebook.com/12345',
+                                   target_platform='facebook')
+    assert 'Facebook Page' in fb_text
+    assert 'https://www.facebook.com/12345' in fb_text
+    assert 'YouTube Studio' not in fb_text
+
+    # Both platforms test
+    both_text = build_status_message('https://www.tiktok.com/test', '🚀 YouTube & Facebook', 100, 4,
+                                     video_title='Multi Video',
+                                     youtube_url='https://www.youtube.com/shorts/abc',
+                                     facebook_url='https://www.facebook.com/67890',
+                                     target_platform='both')
+    assert 'YouTube Studio & Facebook Page' in both_text
+    assert 'https://www.youtube.com/shorts/abc' in both_text
+    assert 'https://www.facebook.com/67890' in both_text

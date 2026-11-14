@@ -1,0 +1,534 @@
+[
+  {
+    "updatedAt": "2026-11-14T12:56:42.000Z",
+    "createdAt": "2026-11-12T09:51:06.458Z",
+    "id": "rg3KCmFJycBM7HaK",
+    "name": "Publisher Multiple Plastform",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "updates": [
+            "message",
+            "callback_query"
+          ],
+          "additionalFields": {}
+        },
+        "id": "tg-trigger",
+        "name": "Telegram Trigger",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          200,
+          200
+        ],
+        "webhookId": "69ea72b5-a801-41e8-a9b4-b4e0e40441a6",
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const update = $input.first().json;\nconst allowedChatId = '5988211094';\nconst allowedUserId = '5988211094';\n\n// 1. Button click (callback_query)\nif (update.callback_query) {\n  const cb = update.callback_query;\n  if (String(cb.from?.id) !== allowedUserId || String(cb.message?.chat?.id) !== allowedChatId) return [];\n  \n  const data = String(cb.data || '');\n  const msgText = String(cb.message?.text || '');\n  \n  if (data === 'pub:cancel') {\n    return [{\n      json: {\n        action: 'cancel',\n        query_id: cb.id,\n        chat_id: String(cb.message.chat.id),\n        message_id: cb.message.message_id,\n        alert_text: '\u0110\u00e3 h\u1ee7y y\u00eau c\u1ea7u.'\n      }\n    }];\n  }\n  \n  const match = msgText.match(/https?:\\/\\/(?:www\\.|m\\.|vm\\.|vt\\.)?tiktok\\.com\\/[^\\s\\n]+/i);\n  const url = match ? match[0].replace(/[,.!?]+$/, '') : '';\n  \n  if (!url) {\n    return [{\n      json: {\n        action: 'cancel',\n        query_id: cb.id,\n        chat_id: String(cb.message.chat.id),\n        message_id: cb.message.message_id,\n        alert_text: 'Kh\u00f4ng t\u00ecm th\u1ea5y link video trong tin nh\u1eafn.'\n      }\n    }];\n  }\n  \n  let privacy = 'public';\n  let shorts_mode = 'short';\n  let target_platform = 'youtube';\n  let label = '\ud83d\udd34 YouTube Shorts';\n  \n  if (data === 'pub:yt_short' || data === 'pub:short') {\n    privacy = 'public';\n    shorts_mode = 'short';\n    target_platform = 'youtube';\n    label = '\ud83d\udd34 YouTube Shorts';\n  } else if (data === 'pub:yt_video' || data === 'pub:video') {\n    privacy = 'public';\n    shorts_mode = 'video';\n    target_platform = 'youtube';\n    label = '\ud83d\udd34 YouTube Video';\n  } else if (data === 'pub:fb_reel') {\n    privacy = 'public';\n    shorts_mode = 'short';\n    target_platform = 'facebook';\n    label = '\ud83d\udd35 Facebook Reels';\n  } else if (data === 'pub:fb_video') {\n    privacy = 'public';\n    shorts_mode = 'video';\n    target_platform = 'facebook';\n    label = '\ud83d\udd35 Facebook Video';\n  } else if (data === 'pub:both') {\n    privacy = 'public';\n    shorts_mode = 'short';\n    target_platform = 'both';\n    label = '\ud83d\ude80 YouTube Shorts & FB Reels';\n  } else if (data === 'pub:yt_private' || data === 'pub:private') {\n    privacy = 'private';\n    shorts_mode = 'short';\n    target_platform = 'youtube';\n    label = '\ud83d\udd12 YouTube Ri\u00eang t\u01b0';\n  }\n  \n  const reqKey = 'tg_' + String(cb.message.chat.id).replace('-', 'n') +\n                 '_' + String(cb.message.message_id) + '_' + data.replace(':', '_') + '_v6';\n                 \n  const bar = '\ud83d\udfe9\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c';\n  let step3 = '\u26aa T\u1ed1i \u01b0u \u0111\u1ecbnh d\u1ea1ng & th\u1ebb video\\n';\n  let step4 = '\u26aa \u0110\u0103ng l\u00ean YouTube Studio';\n  if (target_platform === 'facebook') {\n    step3 = '\u26aa T\u1ed1i \u01b0u video chu\u1ea9n Facebook Page\\n';\n    step4 = '\u26aa \u0110\u0103ng l\u00ean Facebook Page';\n  } else if (target_platform === 'both') {\n    step3 = '\u26aa T\u1ed1i \u01b0u chu\u1ea9n Shorts 9:16 & Reels\\n';\n    step4 = '\u26aa \u0110\u0103ng l\u00ean YouTube Studio & Facebook Page';\n  } else if (shorts_mode === 'short') {\n    step3 = '\u26aa T\u1ed1i \u01b0u \u0111\u1ecbnh d\u1ea1ng 9:16 & th\u1ebb #Shorts\\n';\n  }\n\n  const statusText = '\u23f3 <b>\u0110ANG X\u1eec L\u00dd [' + label + ']</b>\\n' +\n                     '\ud83d\udd17 ' + url + '\\n\\n' +\n                     'Ti\u1ebfn \u0111\u1ed9: ' + bar + ' <b>10%</b>\\n\\n' +\n                     '\ud83d\udfe1 Ti\u1ebfp nh\u1eadn & x\u1ebfp h\u00e0ng x\u1eed l\u00fd...\\n' +\n                     '\u26aa T\u1ea3i video TikTok v\u1ec1 VPS\\n' +\n                     step3 + step4;\n                     \n  return [{\n    json: {\n      action: 'submit',\n      query_id: cb.id,\n      chat_id: String(cb.message.chat.id),\n      message_id: cb.message.message_id,\n      alert_text: '\u0110ang chuy\u1ec3n video t\u1edbi Publisher: ' + label,\n      status_text: statusText,\n      request_key: reqKey,\n      telegram_chat_id: String(cb.message.chat.id),\n      telegram_message_id: String(cb.message.message_id),\n      source_url: url,\n      title: '',\n      description: '',\n      privacy: privacy,\n      shorts_mode: shorts_mode,\n      target_platform: target_platform,\n      label: label,\n      made_for_kids: false,\n      rights_confirmed: true\n    }\n  }];\n}\n\n// 2. New message (TikTok link or /publish command)\nif (update.message) {\n  const msg = update.message;\n  if (String(msg.chat?.id) !== allowedChatId || String(msg.from?.id) !== allowedUserId) return [];\n  const text = String(msg.text || '').trim();\n  \n  const input = text.replace(/^\\/(?:publish|public)(?:@[A-Za-z0-9_]+)?\\s+/i, '').trim();\n  const match = input.match(/https?:\\/\\/(?:www\\.|m\\.|vm\\.|vt\\.)?tiktok\\.com\\/[^\\s\\n]+/i);\n  if (!match) return [];\n  const url = match[0].replace(/[,.!?]+$/, '');\n  \n  return [{\n    json: {\n      action: 'prompt',\n      chat_id: String(msg.chat.id),\n      message_id: msg.message_id,\n      url: url,\n      prompt_text: '\ud83d\udcf9 <b>\u0110\u00e3 nh\u1eadn link TikTok:</b>\\n\ud83d\udd17 ' + url + '\\n\\n\ud83d\udc49 <b>Ch\u1ecdn n\u1ec1n t\u1ea3ng & \u0111\u1ecbnh d\u1ea1ng xu\u1ea5t b\u1ea3n:</b>'\n    }\n  }];\n}\n\nreturn [];"
+        },
+        "id": "route-prepare",
+        "name": "Route & Prepare",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          200
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "c1",
+                "leftValue": "={{ $json.action }}",
+                "rightValue": "prompt",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "if-prompt",
+        "name": "Is Prompt?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          680,
+          200
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $json.chat_id }}",
+          "text": "={{ $json.prompt_text }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "\ud83d\udd34 YouTube Shorts",
+                      "additionalFields": {
+                        "callback_data": "pub:yt_short"
+                      }
+                    },
+                    {
+                      "text": "\ud83d\udd34 YouTube Video",
+                      "additionalFields": {
+                        "callback_data": "pub:yt_video"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "\ud83d\udd35 Facebook Reels",
+                      "additionalFields": {
+                        "callback_data": "pub:fb_reel"
+                      }
+                    },
+                    {
+                      "text": "\ud83d\udd35 Facebook Video",
+                      "additionalFields": {
+                        "callback_data": "pub:fb_video"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "\ud83d\ude80 \u0110\u0103ng c\u1ea3 YouTube + Facebook",
+                      "additionalFields": {
+                        "callback_data": "pub:both"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "\ud83d\udd12 YouTube Ri\u00eang t\u01b0 (Test)",
+                      "additionalFields": {
+                        "callback_data": "pub:yt_private"
+                      }
+                    },
+                    {
+                      "text": "\u274c H\u1ee7y",
+                      "additionalFields": {
+                        "callback_data": "pub:cancel"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "prompt-buttons",
+        "name": "Send Prompt with Buttons",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          920,
+          100
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "c2",
+                "leftValue": "={{ $json.action }}",
+                "rightValue": "cancel",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "if-cancel",
+        "name": "Is Cancel?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          920,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "callback",
+          "queryId": "={{ $json.query_id }}",
+          "additionalFields": {
+            "text": "={{ $json.alert_text }}"
+          }
+        },
+        "id": "ack-cancel",
+        "name": "Answer Cancel CB",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1140,
+          200
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "editMessageText",
+          "chatId": "={{ $('Route & Prepare').first().json.chat_id }}",
+          "messageId": "={{ $('Route & Prepare').first().json.message_id }}",
+          "text": "\u274c <b>\u0110\u00e3 h\u1ee7y y\u00eau c\u1ea7u \u0111\u0103ng video.</b>",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "edit-cancelled",
+        "name": "Edit Message Cancelled",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1360,
+          200
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "callback",
+          "queryId": "={{ $('Route & Prepare').first().json.query_id }}",
+          "additionalFields": {
+            "text": "={{ $('Route & Prepare').first().json.alert_text }}"
+          }
+        },
+        "id": "ack-submit",
+        "name": "Answer Submit CB",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1140,
+          380
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const p = $('Route & Prepare').first().json;\nreturn [{\n  json: {\n    request_key: p.request_key,\n    telegram_chat_id: p.telegram_chat_id,\n    telegram_message_id: String(p.telegram_message_id || ''),\n    source_url: p.source_url,\n    title: p.title || '',\n    description: p.description || '',\n    privacy: p.privacy || 'public',\n    shorts_mode: p.shorts_mode || 'short',\n    target_platform: p.target_platform || 'youtube',\n    made_for_kids: false,\n    rights_confirmed: true\n  }\n}];"
+        },
+        "id": "format-payload",
+        "name": "Format Publisher Payload",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1360,
+          380
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://publisher:8000/internal/v1/tiktok",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json) }}",
+          "options": {
+            "timeout": 20000
+          }
+        },
+        "id": "submit-video",
+        "name": "Submit to Publisher",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1580,
+          380
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "pubAuthToken2026",
+            "name": "Publisher Internal Token"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "operation": "editMessageText",
+          "chatId": "={{ $('Route & Prepare').first().json.chat_id }}",
+          "messageId": "={{ $('Route & Prepare').first().json.message_id }}",
+          "text": "={{\n(() => {\n  const prep = $('Route & Prepare').first().json;\n  const q = $json.quota;\n  let qText = '';\n  if (q) {\n    if (q.is_unlimited) {\n      qText = '\ud83d\udc8e <b>G\u00f3i:</b> ' + (q.tier || '').toUpperCase() + ' (Kh\u00f4ng gi\u1edbi h\u1ea1n)\\n\\n';\n    } else {\n      qText = '\ud83d\udcca <b>H\u1ea1n ng\u1ea1ch:</b> \u0110\u00e3 d\u00f9ng ' + q.posts_used + '/' + q.posts_limit + ' b\u00e0i (C\u00f2n ' + q.remaining + ' b\u00e0i mi\u1ec5n ph\u00ed th\u00e1ng ' + q.cycle + ')\\n\\n';\n    }\n  }\n  let step3 = '\u26aa T\u1ed1i \u01b0u \u0111\u1ecbnh d\u1ea1ng & th\u1ebb video\\n';\n  let step4 = '\u26aa \u0110\u0103ng l\u00ean YouTube Studio';\n  if (prep.target_platform === 'facebook') {\n    step3 = '\u26aa T\u1ed1i \u01b0u video chu\u1ea9n Facebook Page\\n';\n    step4 = '\u26aa \u0110\u0103ng l\u00ean Facebook Page';\n  } else if (prep.target_platform === 'both') {\n    step3 = '\u26aa T\u1ed1i \u01b0u chu\u1ea9n Shorts 9:16 & Reels\\n';\n    step4 = '\u26aa \u0110\u0103ng l\u00ean YouTube Studio & Facebook Page';\n  } else if (prep.shorts_mode === 'short') {\n    step3 = '\u26aa T\u1ed1i \u01b0u \u0111\u1ecbnh d\u1ea1ng 9:16 & th\u1ebb #Shorts\\n';\n  }\n\n  return '\u23f3 <b>\u0110ANG X\u1eec L\u00dd [' + prep.label + ']</b>\\n' +\n         '\ud83d\udd17 ' + prep.source_url + '\\n\\n' +\n         qText +\n         'Ti\u1ebfn \u0111\u1ed9: \ud83d\udfe9\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c\u2b1c <b>10%</b>\\n\\n' +\n         '\ud83d\udfe1 Ti\u1ebfp nh\u1eadn & x\u1ebfp h\u00e0ng x\u1eed l\u00fd...\\n' +\n         '\u26aa T\u1ea3i video TikTok v\u1ec1 VPS\\n' +\n         step3 + step4 + '\\n\\n' + '\ud83d\udc49 <b>Theo d\u00f5i t\u1ea1i:</b> <a href=\"https://publisher.toomi.vn/\">Trung t\u00e2m t\u00e1c v\u1ee5</a>';\n})()\n}}",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "edit-processing",
+        "name": "Edit Message Processing",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1820,
+          320
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "editMessageText",
+          "chatId": "={{ $('Route & Prepare').first().json.chat_id }}",
+          "messageId": "={{ $('Route & Prepare').first().json.message_id }}",
+          "text": "={{\n(() => {\n  const prep = $('Route & Prepare').first().json;\n  const errObj = $json.response?.body || $json.error || $json;\n  let detail = '';\n  if (typeof errObj === 'object') {\n    detail = errObj.detail || errObj.message || JSON.stringify(errObj);\n  } else {\n    detail = String(errObj);\n  }\n  if (detail.includes('h\u1ebft') && detail.includes('l\u01b0\u1ee3t \u0111\u0103ng mi\u1ec5n ph\u00ed')) {\n    return '\ud83d\udeab <b>H\u1ebeT H\u1ea0N NG\u1ea0CH TH\u00c1NG N\u00c0Y [' + prep.label + ']</b>\\n' +\n           '\ud83d\udd17 ' + prep.source_url + '\\n\\n' +\n           '\u26a0\ufe0f ' + detail + '\\n\\n' +\n           '\ud83d\udc8e <b>N\u00e2ng c\u1ea5p g\u00f3i Pro \u0111\u1ec3 xu\u1ea5t b\u1ea3n kh\u00f4ng gi\u1edbi h\u1ea1n:</b> <a href=\"https://publisher.toomi.vn/\">publisher.toomi.vn</a>';\n  }\n  return '\u274c <b>KH\u00d4NG TH\u1ec2 TI\u1ebeP NH\u1eacN Y\u00caU C\u1ea6U [' + prep.label + ']</b>\\n' +\n         '\ud83d\udd17 ' + prep.source_url + '\\n\\n' +\n         '\u26a0\ufe0f <b>L\u1ed7i API:</b> ' + detail;\n})()\n}}",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "edit-api-error",
+        "name": "Edit Message API Error",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1820,
+          480
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "Es9uo6fs98r7MrrO",
+            "name": "bot telegramt ytb"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Telegram Trigger": {
+        "main": [
+          [
+            {
+              "node": "Route & Prepare",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route & Prepare": {
+        "main": [
+          [
+            {
+              "node": "Is Prompt?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Prompt?": {
+        "main": [
+          [
+            {
+              "node": "Send Prompt with Buttons",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Is Cancel?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Cancel?": {
+        "main": [
+          [
+            {
+              "node": "Answer Cancel CB",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Answer Submit CB",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Answer Cancel CB": {
+        "main": [
+          [
+            {
+              "node": "Edit Message Cancelled",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Answer Submit CB": {
+        "main": [
+          [
+            {
+              "node": "Format Publisher Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Publisher Payload": {
+        "main": [
+          [
+            {
+              "node": "Submit to Publisher",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Submit to Publisher": {
+        "main": [
+          [
+            {
+              "node": "Edit Message Processing",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Edit Message API Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "timeSavedMode": "fixed",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": true
+    },
+    "staticData": {
+      "node:Every minute": {
+        "recurrenceRules": [
+          null
+        ],
+        "recurrenceRuleSignatures": [
+          null
+        ]
+      }
+    },
+    "meta": null,
+    "nodeGroups": [],
+    "pinData": {},
+    "versionId": "8fbc7d90-e3b4-43e7-9fb6-6c3101852a4e",
+    "activeVersionId": "8fbc7d90-e3b4-43e7-9fb6-6c3101852a4e",
+    "versionCounter": 10,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-12T09:51:06.462Z",
+        "createdAt": "2026-11-12T09:51:06.462Z",
+        "role": "workflow:owner",
+        "workflowId": "rg3KCmFJycBM7HaK",
+        "projectId": "S2kSNV8dvzOfaDRj",
+        "project": {
+          "updatedAt": "2026-04-04T06:11:24.667Z",
+          "createdAt": "2026-04-04T06:11:02.964Z",
+          "id": "S2kSNV8dvzOfaDRj",
+          "name": "Kh\u01b0\u01a1ng Tr\u1ea7n <khuongtran227@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "4d8af7e5-4109-451a-b7b7-37f68aff9be5"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

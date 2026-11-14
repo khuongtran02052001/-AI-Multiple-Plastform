@@ -95,6 +95,7 @@ ingests = Table('sp_ingests', metadata,
     Column('telegram_message_id', String(32)),
     Column('privacy', String(20), default='private'),
     Column('shorts_mode', String(20), default='auto'),
+    Column('target_platform', String(20), default='youtube'),
     Column('notified_at', Float),
     Column('source_url', Text, nullable=False),
     Column('account_id', String(36), ForeignKey('sp_accounts.id'), nullable=False),
@@ -141,6 +142,10 @@ def initialize(engine, admin_password_hash=None):
     if 'sp_users' in inspector.get_table_names() and role_migration:
         with engine.begin() as c:
             c.exec_driver_sql("ALTER TABLE sp_users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
+    tp_migration = 'sp_ingests' in inspector.get_table_names() and 'target_platform' not in {col['name'] for col in inspector.get_columns('sp_ingests')}
+    if 'sp_ingests' in inspector.get_table_names() and tp_migration:
+        with engine.begin() as c:
+            c.exec_driver_sql("ALTER TABLE sp_ingests ADD COLUMN target_platform VARCHAR(20) NOT NULL DEFAULT 'youtube'")
     metadata.create_all(engine)
     if engine.dialect.name == 'postgresql':
         with engine.begin() as c:

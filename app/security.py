@@ -6,16 +6,24 @@ from cryptography.fernet import Fernet
 import json
 
 
+def _scrypt_derive(password_bytes: bytes, salt: bytes, n: int = 16384, r: int = 8, p: int = 1, length: int = 64) -> bytes:
+    if hasattr(hashlib, 'scrypt'):
+        return hashlib.scrypt(password_bytes, salt=salt, n=n, r=r, p=p)
+    from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+    kdf = Scrypt(salt=salt, length=length, n=n, r=r, p=p)
+    return kdf.derive(password_bytes)
+
+
 def password_hash(password):
     salt = secrets.token_bytes(16)
-    value = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
+    value = _scrypt_derive(password.encode(), salt=salt, n=16384, r=8, p=1)
     return f'scrypt${salt.hex()}${value.hex()}'
 
 
 def verify_password(password, encoded):
     try:
         _, salt, value = encoded.split('$')
-        actual = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1)
+        actual = _scrypt_derive(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1, length=len(bytes.fromhex(value)))
         return hmac.compare_digest(actual.hex(), value)
     except (ValueError, TypeError):
         return False

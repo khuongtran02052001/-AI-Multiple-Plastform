@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Private service-to-service API for the Telegram/n8n ingestion workflow.
 
 The browser keeps its own cookie/CSRF authentication. This router uses a separate
@@ -8,7 +9,7 @@ import re
 import secrets
 import time
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
@@ -23,15 +24,48 @@ from app.quota import validate_and_consume_quota, get_user_quota
 class TikTokSubmission(BaseModel):
     request_key: str = Field(min_length=16, max_length=100)
     telegram_chat_id: str = Field(min_length=1, max_length=32)
-    telegram_message_id: str | None = Field(default=None, max_length=32)
+    telegram_message_id: Optional[str] = Field(default=None, max_length=32)
     source_url: str = Field(min_length=20, max_length=1000)
     title: str = Field(default='', max_length=100)
     description: str = Field(default='', max_length=5000)
     privacy: Literal['private', 'unlisted', 'public'] = 'private'
     shorts_mode: Literal['auto', 'short', 'video'] = 'auto'
-    scheduled_at: datetime | None = None
+    target_platform: Literal['youtube', 'facebook', 'both'] = 'youtube'
+    scheduled_at: Optional[datetime] = None
     made_for_kids: bool
     rights_confirmed: Literal[True]
+
+
+def resolve_automation_user(engine, settings, telegram_chat_id: str) -> str:
+    """Resolve or provision user account for this telegram chat id."""
+    admin_chat = getattr(settings, 'admin_telegram_chat_id', '5988211094')
+    if telegram_chat_id and str(telegram_chat_id) == str(admin_chat):
+        with engine.connect() as c:
+            owner = c.execute(select(users.c.id).where(users.c.email == 'khuongtran227@gmail.com')).first()
+            if owner:
+                return owner[0]
+        return 'usr_owner_default'
+
+    target_id = f'usr_tg_{telegram_chat_id}'
+    with engine.connect() as c:
+        existing = c.execute(select(users.c.id).where(users.c.id == target_id)).first()
+        if existing:
+            return existing[0]
+
+    now = time.time()
+    with engine.begin() as c:
+        c.execute(users.insert().values(
+            id=target_id,
+            email=f'tg_{telegram_chat_id}@telegram.toomi.vn',
+            password_hash='telegram',
+            name=f'Telegram User {telegram_chat_id}',
+            tier='free',
+            status='active',
+            posts_limit=10,
+            created_at=now,
+            updated_at=now
+        ))
+    return target_id
 
 
 def register_automation(app, engine, settings):
@@ -44,38 +78,8 @@ def register_automation(app, engine, settings):
         ):
             raise HTTPException(401, 'Thông tin xác thực dịch vụ không hợp lệ.')
 
-    def resolve_automation_user(telegram_chat_id: str) -> str:
-        """Resolve or provision user account for this telegram chat id."""
-        # Check against configured admin telegram chat id
-        admin_chat = getattr(settings, 'admin_telegram_chat_id', '5988211094')
-        if telegram_chat_id and str(telegram_chat_id) == str(admin_chat):
-            with engine.connect() as c:
-                owner = c.execute(select(users.c.id).where(users.c.email == 'khuongtran227@gmail.com')).first()
-                if owner:
-                    return owner[0]
-            return 'usr_owner_default'
-
-        target_id = f'usr_tg_{telegram_chat_id}'
-        with engine.connect() as c:
-            existing = c.execute(select(users.c.id).where(users.c.id == target_id)).first()
-            if existing:
-                return existing[0]
-
-        # Auto-provision new Free customer for Telegram user
-        now = time.time()
-        with engine.begin() as c:
-            c.execute(users.insert().values(
-                id=target_id,
-                email=f'tg_{telegram_chat_id}@telegram.toomi.vn',
-                password_hash='telegram',
-                name=f'Telegram User {telegram_chat_id}',
-                tier='free',
-                status='active',
-                posts_limit=10,
-                created_at=now,
-                updated_at=now
-            ))
-        return target_id
+    def resolve_user(telegram_chat_id: str) -> str:
+        return resolve_automation_user(engine, settings, telegram_chat_id)
 
     def view(job_id):
         with engine.connect() as c:
@@ -100,7 +104,7 @@ def register_automation(app, engine, settings):
     @app.get('/internal/v1/quota')
     def get_automation_quota(chat_id: str, request: Request):
         authorize(request)
-        user_id = resolve_automation_user(chat_id)
+        user_id = resolve_user(chat_id)
         return get_user_quota(engine, user_id)
 
     @app.get('/internal/v1/notifications')
@@ -155,31 +159,57 @@ def register_automation(app, engine, settings):
         title = payload.title.strip()
         if payload.scheduled_at is not None and payload.scheduled_at.tzinfo is None:
             raise HTTPException(400, 'Thời gian hẹn đăng cần có múi giờ.')
-        if not settings.automation_youtube_account_id:
-            raise HTTPException(503, 'Chưa chỉ định kênh YouTube cho automation.')
+
+        # 1. Resolve user
+        user_id = resolve_user(payload.telegram_chat_id)
+
+        # 2. Look up destination accounts for this user
         with engine.connect() as c:
-            account = c.execute(select(accounts.c.id).where(
-                accounts.c.id == settings.automation_youtube_account_id,
-                accounts.c.provider == 'youtube',
-                accounts.c.active == True,
-            )).first()
-        if not account:
-            raise HTTPException(503, 'Chưa kết nối đúng kênh YouTube được chỉ định.')
+            user_accounts = c.execute(select(accounts).where(
+                accounts.c.user_id == user_id,
+                accounts.c.active == True
+            )).mappings().all()
+
+        yt_account = next((a for a in user_accounts if a['provider'] == 'youtube'), None)
+        if not yt_account and settings.automation_youtube_account_id:
+            with engine.connect() as c:
+                yt_account = c.execute(select(accounts).where(
+                    accounts.c.id == settings.automation_youtube_account_id,
+                    accounts.c.provider == 'youtube',
+                    accounts.c.active == True,
+                )).mappings().first()
+
+        fb_account = next((a for a in user_accounts if a['provider'] == 'facebook'), None)
+
+        if payload.target_platform == 'facebook':
+            if not fb_account:
+                raise HTTPException(503, 'Chưa kết nối kênh Facebook Page hợp lệ.')
+            primary_account = fb_account
+        elif payload.target_platform == 'both':
+            if not yt_account:
+                raise HTTPException(503, 'Chưa kết nối đúng kênh YouTube hợp lệ.')
+            if not fb_account:
+                raise HTTPException(503, 'Chưa kết nối kênh Facebook Page hợp lệ.')
+            primary_account = yt_account
+        else: # youtube
+            if not yt_account:
+                raise HTTPException(503, 'Chưa kết nối đúng kênh YouTube được chỉ định.')
+            primary_account = yt_account
+
+        account_id = primary_account['id']
 
         with engine.connect() as c:
             existing = c.execute(select(ingests.c.id, ingests.c.source_url,
                                         ingests.c.account_id).where(
                 ingests.c.request_key == payload.request_key)).mappings().first()
         if existing:
-            if existing['source_url'] != source_url or existing['account_id'] != account.id:
+            if existing['source_url'] != source_url or existing['account_id'] != account_id:
                 raise HTTPException(409, 'Khóa yêu cầu đã được dùng cho nội dung khác.')
             return {**view(existing['id']), 'ok': True, 'deduplicated': True}
 
-        # 1. Resolve user
-        user_id = resolve_automation_user(payload.telegram_chat_id)
-
-        # 2. Enforce quota: 10 posts/month limit for Free tier
-        quota = validate_and_consume_quota(engine, user_id, count=1)
+        # 3. Enforce quota: 1 post for single platform, 2 posts for both
+        consume_count = 2 if payload.target_platform == 'both' else 1
+        quota = validate_and_consume_quota(engine, user_id, count=consume_count)
 
         job_id = new_id()
         now = time.time()
@@ -192,10 +222,11 @@ def register_automation(app, engine, settings):
                     request_key=payload.request_key,
                     telegram_chat_id=payload.telegram_chat_id,
                     telegram_message_id=payload.telegram_message_id,
-                    source_url=source_url, account_id=account.id,
+                    source_url=source_url, account_id=account_id,
                     title=title, description=payload.description,
                     privacy=payload.privacy,
                     shorts_mode=payload.shorts_mode,
+                    target_platform=payload.target_platform,
                     made_for_kids=payload.made_for_kids,
                     status='pending', scheduled_at=scheduled,
                     created_at=now, updated_at=now))
@@ -205,7 +236,7 @@ def register_automation(app, engine, settings):
                 old = c.execute(select(ingests.c.id, ingests.c.source_url,
                                        ingests.c.account_id).where(
                     ingests.c.request_key == payload.request_key)).mappings().first()
-            if old and old['source_url'] == source_url and old['account_id'] == account.id:
+            if old and old['source_url'] == source_url and old['account_id'] == account_id:
                 return {**view(old['id']), 'ok': True, 'quota': quota, 'deduplicated': True}
             raise HTTPException(409, 'Khóa yêu cầu bị trùng.')
 

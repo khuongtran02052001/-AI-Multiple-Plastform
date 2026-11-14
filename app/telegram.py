@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Telegram bot notification helper for publisher workflow with colored progress."""
 import logging
 from html import escape
@@ -14,11 +15,21 @@ def get_colored_progress_bar(percent: int, total_blocks: int = 10) -> str:
 
 def build_status_message(source_url: str, label: str, percent: int, step_index: int,
                          file_info: str = '', video_title: str = '',
-                         youtube_url: str = '', error_message: str = '') -> str:
-    source_url, label, file_info, video_title, youtube_url, error_message = (
-        escape(str(v), quote=True) for v in (source_url, label, file_info, video_title, youtube_url, error_message)
+                         youtube_url: str = '', facebook_url: str = '',
+                         target_platform: str = 'youtube', error_message: str = '') -> str:
+    source_url, label, file_info, video_title, youtube_url, facebook_url, error_message = (
+        escape(str(v), quote=True) for v in (source_url, label, file_info, video_title, youtube_url, facebook_url, error_message)
     )
-    step3_name = 'Tối ưu chuẩn Shorts 9:16 & thẻ #Shorts' if 'Short' in label else 'Tối ưu định dạng & thẻ video'
+    if target_platform == 'facebook':
+        step3_name = 'Tối ưu video chuẩn Facebook Page'
+        step4_name = 'Đăng lên Facebook Page'
+    elif target_platform == 'both':
+        step3_name = 'Tối ưu chuẩn Shorts 9:16 & Reels'
+        step4_name = 'Đăng lên YouTube Studio & Facebook Page'
+    else:
+        step3_name = 'Tối ưu chuẩn Shorts 9:16 & thẻ #Shorts' if 'Short' in label else 'Tối ưu định dạng & thẻ video'
+        step4_name = 'Đăng lên YouTube Studio'
+
     if file_info and step_index >= 3:
         step3_name += f' ({file_info})'
 
@@ -26,7 +37,7 @@ def build_status_message(source_url: str, label: str, percent: int, step_index: 
         'Tiếp nhận & xếp hàng xử lý',
         'Tải video TikTok về VPS',
         step3_name,
-        'Đăng lên YouTube Studio',
+        step4_name,
     ]
 
     if error_message:
@@ -56,14 +67,19 @@ def build_status_message(source_url: str, label: str, percent: int, step_index: 
 
     if percent >= 100:
         title_line = f"\n\n🎬 <b>Tiêu đề:</b> {video_title}" if video_title else ''
-        yt_line = f"\n👉 <b>Xem ngay:</b> <a href='{youtube_url}'>{youtube_url}</a>" if youtube_url else ''
+        links = []
+        if youtube_url:
+            links.append(f"👉 <b>YouTube:</b> <a href='{youtube_url}'>{youtube_url}</a>")
+        if facebook_url:
+            links.append(f"👉 <b>Facebook Page:</b> <a href='{facebook_url}'>{facebook_url}</a>")
+        links_block = ('\n' + '\n'.join(links)) if links else ''
         return (
             f"🎉 <b>XUẤT BẢN THÀNH CÔNG [{label}]</b>\n"
             f"🔗 {source_url}\n\n"
             f"Tiến độ: {bar} <b>100%</b>\n\n"
             f"{steps_block}"
             f"{title_line}"
-            f"{yt_line}\n"
+            f"{links_block}\n"
             f"📋 <b>Quản lý tác vụ:</b> <a href='https://publisher.toomi.vn/'>Trung tâm tác vụ</a>"
         )
 
@@ -79,7 +95,8 @@ def build_status_message(source_url: str, label: str, percent: int, step_index: 
 def update_telegram_progress(token: str, chat_id: str | None, message_id: str | int | None,
                              source_url: str, label: str, percent: int, step_index: int,
                              file_info: str = '', video_title: str = '',
-                             youtube_url: str = '', error_message: str = ''):
+                             youtube_url: str = '', facebook_url: str = '',
+                             target_platform: str = 'youtube', error_message: str = ''):
     if not token or not chat_id or not message_id:
         return False
     try:
@@ -91,6 +108,8 @@ def update_telegram_progress(token: str, chat_id: str | None, message_id: str | 
             file_info=file_info,
             video_title=video_title,
             youtube_url=youtube_url,
+            facebook_url=facebook_url,
+            target_platform=target_platform,
             error_message=error_message
         )
         url = f"https://api.telegram.org/bot{token}/editMessageText"

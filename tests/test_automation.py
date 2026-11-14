@@ -235,3 +235,50 @@ def test_downloader_cleans_metadata_sidecar(automation, monkeypatch):
     assert result['source_metadata']['title'] == 'Test clip'
     assert not list((cfg.data_dir / 'media').glob('*.info.json'))
     assert Path(result['path']).exists()
+
+
+def test_target_platform_routing_and_multi_post(automation):
+    cfg, engine, provider, client = automation
+    # 1. Facebook fails when no FB account is connected
+    r_fb = client.post('/internal/v1/tiktok', json=item(
+        request_key='tg-chat-fb-1-test-key-16',
+        target_platform='facebook'
+    ), headers=headers(cfg))
+    assert r_fb.status_code == 503
+
+    # Connect Facebook account for user
+    from app.automation import resolve_automation_user
+    user_id = resolve_automation_user(engine, cfg, '123456789')
+    with engine.begin() as c:
+        c.execute(accounts.insert().values(
+            id='fb-test-account',
+            user_id=user_id,
+            provider='facebook', external_id='page-1', name='My FB Page',
+            tokens=Vault(cfg.encryption_key).encrypt({'access_token': 'mock', 'kind': 'page'}),
+            active=True, created_at=time.time()))
+
+    # 2. Both platforms succeed
+    r_both = client.post('/internal/v1/tiktok', json=item(
+        request_key='tg-chat-both-1-test-key-16',
+        target_platform='both'
+    ), headers=headers(cfg))
+    assert r_both.status_code == 200
+
+    def fake_download(settings, url):
+        path = settings.data_dir / 'media' / 'both.mp4'
+        path.write_bytes(b'fake')
+        return {'id': 'media-both', 'filename': path.name, 'path': str(path),
+                'size': 4, 'duration': 4, 'width': 720, 'height': 1280,
+                'created_at': time.time()}
+
+    assert process_one_ingest(engine, cfg, downloader=fake_download)
+
+    # Verify two posts created in DB
+    with engine.connect() as c:
+        created_posts = c.execute(select(posts).where(posts.c.batch_key == 'tg-chat-both-1-test-key-16')).mappings().all()
+        assert len(created_posts) == 2
+        providers_set = {
+            c.execute(select(accounts.c.provider).where(accounts.c.id == p['account_id'])).scalar()
+            for p in created_posts
+        }
+        assert providers_set == {'youtube', 'facebook'}

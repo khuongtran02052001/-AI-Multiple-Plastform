@@ -1,3 +1,4 @@
+from __future__ import annotations
 """API Key and Multi-tenant Authentication for Publisher integrations (n8n, Make, scripts).
 """
 import secrets

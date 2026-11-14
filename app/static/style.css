@@ -694,3 +694,202 @@
   .analytics-stats-dynamic { grid-template-columns: repeat(2, 1fr); }
   .user-profile-banner { flex-direction: column; align-items: flex-start; gap: 14px; }
 }
+
+
+/* ========================================================
+   ADMIN MANAGEMENT PORTAL STYLES
+   ======================================================== */
+.admin-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.admin-top-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 10px;
+  overflow-x: auto;
+}
+
+.admin-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-tab-btn:hover {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.admin-tab-btn.active {
+  background: #1e1b4b;
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table th {
+  padding: 12px 14px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid #243044;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 14px;
+  border-bottom: 1px solid #1a2333;
+  font-size: 13px;
+  color: #cbd5e1;
+  vertical-align: middle;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4f46e5, #06b6d4);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.badge-tier-free {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+}
+
+.badge-tier-pro {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #312e81;
+  color: #c7d2fe;
+  border: 1px solid #6366f1;
+}
+
+.badge-tier-agency {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #3730a3;
+  color: #e0e7ff;
+  border: 1px solid #818cf8;
+}
+
+.badge-status-active {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.badge-status-suspended {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+.admin-action-group {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.admin-select {
+  background: #0d1421;
+  border: 1px solid #2a3445;
+  color: #e2e8f0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.admin-btn-sm {
+  padding: 5px 9px;
+  font-size: 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #334155;
+  background: #151d2c;
+  color: #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.admin-btn-sm:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.admin-btn-danger {
+  border-color: #ef444444;
+  color: #ef4444;
+}
+
+.admin-btn-danger:hover {
+  background: #7f1d1d;
+  color: #ffffff;
+}

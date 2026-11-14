@@ -16,7 +16,7 @@ from collections import defaultdict, deque
 
 from contextlib import asynccontextmanager
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pathlib import Path
 
@@ -38,7 +38,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import settings as default_settings
 
-from app.db import make_engine, initialize, accounts, media, posts, sessions, oauth_states, ingests, users, new_id
+from app.db import make_engine, initialize, accounts, media, posts, sessions, oauth_states, ingests, users, usage_quotas, new_id
 
 from app.security import Vault, verify_password, password_hash, digest
 
@@ -119,6 +119,14 @@ class CreateApiKeyPayload(BaseModel):
 
 
 
+
+
+class AdminUserTierUpdate(BaseModel):
+    tier: str
+    posts_limit: int
+
+class AdminUserStatusUpdate(BaseModel):
+    status: str
 
 class ExternalPublishPayload(BaseModel):
 
@@ -209,6 +217,31 @@ def create_app(config=None, engine=None, providers=None):
     register_automation(app, db, s)
 
 
+
+
+    def is_admin_session(session: dict) -> bool:
+        user_id = session.get('user_id')
+        if session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea'):
+            return True
+        with db.connect() as c:
+            u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
+            if u and (u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com') or u.get('role') == 'admin'):
+                return True
+        return False
+
+    def require_admin(request: Request):
+        session = require_session(request)
+        if not is_admin_session(session):
+            raise HTTPException(403, 'Yêu cầu quyền Super Admin.')
+        return session
+
+    def admin_mutation_auth(request: Request):
+        session = require_admin(request)
+        if request.headers.get('origin') and request.headers.get('origin') != s.base_url:
+            raise HTTPException(403, 'Origin không hợp lệ.')
+        if not secrets.compare_digest(request.headers.get('x-csrf-token', ''), session['csrf']):
+            raise HTTPException(403, 'CSRF token không hợp lệ.')
+        return session
 
     def require_session(request: Request):
 
@@ -1528,6 +1561,113 @@ def create_app(config=None, engine=None, providers=None):
 
 
     root = Path(__file__).parent / 'static'
+
+
+    @app.get('/api/admin/overview')
+    def admin_overview(request: Request):
+        session = require_admin(request)
+        with db.connect() as c:
+            total_users = c.execute(select(func.count(users.c.id))).scalar() or 0
+            total_accounts = c.execute(select(func.count(accounts.c.id)).where(accounts.c.active == True)).scalar() or 0
+            total_posts = c.execute(select(func.count(posts.c.id))).scalar() or 0
+            queued_posts = c.execute(select(func.count(posts.c.id)).where(posts.c.status.in_(['queued', 'posting']))).scalar() or 0
+            failed_posts = c.execute(select(func.count(posts.c.id)).where(posts.c.status == 'failed')).scalar() or 0
+            delivered_posts = c.execute(select(func.count(posts.c.id)).where(posts.c.status == 'submitted')).scalar() or 0
+        return {
+            'total_users': total_users,
+            'total_accounts': total_accounts,
+            'total_posts': total_posts,
+            'queued_posts': queued_posts,
+            'failed_posts': failed_posts,
+            'delivered_posts': delivered_posts,
+            'worker_status': 'active' if s.worker_enabled else 'stopped'
+        }
+
+    @app.get('/api/admin/users')
+    def admin_get_users(request: Request):
+        session = require_admin(request)
+        cycle = datetime.now(timezone.utc).strftime('%Y-%m')
+        with db.connect() as c:
+            u_rows = c.execute(select(users).order_by(users.c.created_at.desc())).mappings().all()
+            q_rows = c.execute(select(usage_quotas).where(usage_quotas.c.cycle == cycle)).mappings().all()
+            q_map = {q['user_id']: dict(q) for q in q_rows}
+            acc_rows = c.execute(select(accounts.c.user_id, func.count(accounts.c.id).label('acc_count')).where(accounts.c.active == True).group_by(accounts.c.user_id)).mappings().all()
+            acc_map = {a['user_id']: a['acc_count'] for a in acc_rows}
+            result = []
+            for u in u_rows:
+                q = q_map.get(u['id'], {})
+                result.append({
+                    'id': u['id'],
+                    'email': u['email'],
+                    'name': u['name'],
+                    'tier': u['tier'] or 'free',
+                    'status': u['status'] or 'active',
+                    'posts_limit': u['posts_limit'] or 10,
+                    'posts_used': q.get('posts_used', 0),
+                    'accounts_count': acc_map.get(u['id'], 0),
+                    'created_at': u['created_at']
+                })
+        return {'users': result}
+
+    @app.post('/api/admin/users/{target_user_id}/tier')
+    def admin_update_user_tier(target_user_id: str, payload: AdminUserTierUpdate, request: Request):
+        session = admin_mutation_auth(request)
+        tier = payload.tier.lower().strip()
+        if tier not in ('free', 'pro', 'agency'):
+            raise HTTPException(400, 'Gói cước không hợp lệ (free, pro, agency).')
+        posts_limit = max(1, min(9999999, int(payload.posts_limit)))
+        now = time.time()
+        with db.begin() as c:
+            c.execute(update(users).where(users.c.id == target_user_id).values(
+                tier=tier,
+                posts_limit=posts_limit,
+                updated_at=now
+            ))
+            cycle = datetime.now(timezone.utc).strftime('%Y-%m')
+            c.execute(update(usage_quotas).where(
+                and_(usage_quotas.c.user_id == target_user_id, usage_quotas.c.cycle == cycle)
+            ).values(
+                posts_limit=posts_limit,
+                updated_at=now
+            ))
+        return {'ok': True, 'user_id': target_user_id, 'tier': tier, 'posts_limit': posts_limit}
+
+    @app.post('/api/admin/users/{target_user_id}/status')
+    def admin_update_user_status(target_user_id: str, payload: AdminUserStatusUpdate, request: Request):
+        session = admin_mutation_auth(request)
+        status = payload.status.lower().strip()
+        if status not in ('active', 'suspended'):
+            raise HTTPException(400, 'Trạng thái không hợp lệ (active, suspended).')
+        with db.begin() as c:
+            c.execute(update(users).where(users.c.id == target_user_id).values(
+                status=status,
+                updated_at=time.time()
+            ))
+        return {'ok': True, 'user_id': target_user_id, 'status': status}
+
+    @app.get('/api/admin/posts')
+    def admin_get_posts(request: Request):
+        session = require_admin(request)
+        with db.connect() as c:
+            query = select(
+                posts.c.id,
+                posts.c.title,
+                posts.c.status,
+                posts.c.remote_id, posts.c.remote_url,
+                posts.c.error,
+                posts.c.created_at,
+                posts.c.scheduled_at,
+                posts.c.user_id,
+                accounts.c.name.label('account_name'),
+                accounts.c.provider,
+                users.c.name.label('user_name'),
+                users.c.email.label('user_email')
+            ).select_from(
+                posts.outerjoin(accounts, accounts.c.id == posts.c.account_id)
+                     .outerjoin(users, users.c.id == posts.c.user_id)
+            ).order_by(posts.c.created_at.desc()).limit(150)
+            rows = c.execute(query).mappings().all()
+        return {'posts': [dict(r) for r in rows]}
 
     app.mount('/static', StaticFiles(directory=root), name='static')
 

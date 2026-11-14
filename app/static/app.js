@@ -998,6 +998,7 @@ function renderUserProfile() {
   const wsName = `${cleanName}'s Studio`;
 
   // Update avatars
+  const adminNav = document.getElementById('nav-btn-admin'); if (adminNav) adminNav.hidden = !isAdmin;
   document.querySelectorAll('.admin-avatar').forEach(a => a.textContent = avatarChar);
   const wsAvatar = document.getElementById('workspace-avatar');
   if (wsAvatar) wsAvatar.textContent = avatarChar;
@@ -1254,4 +1255,226 @@ document.addEventListener('click', function(e) {
   if (btn && btn.dataset.days) {
     renderAnalytics(parseInt(btn.dataset.days));
   }
+});
+
+
+/* ========================================================
+   ADMIN MANAGEMENT PORTAL LOGIC
+   ======================================================== */
+let adminData = { overview: null, users: [], posts: [] };
+
+async function renderAdminView() {
+  try {
+    const [overview, usersRes, postsRes] = await Promise.all([
+      api('/api/admin/overview'),
+      api('/api/admin/users'),
+      api('/api/admin/posts')
+    ]);
+    adminData.overview = overview;
+    adminData.users = usersRes.users || [];
+    adminData.posts = postsRes.posts || [];
+
+    // 1. Stats
+    if ($('admin-stat-users')) $('admin-stat-users').textContent = overview.total_users || 0;
+    if ($('admin-stat-accounts')) $('admin-stat-accounts').textContent = overview.total_accounts || 0;
+    if ($('admin-stat-posts')) $('admin-stat-posts').textContent = overview.total_posts || 0;
+    if ($('admin-stat-posts-sub')) $('admin-stat-posts-sub').textContent = `${overview.delivered_posts || 0} bài thành công · ${overview.queued_posts || 0} đang chờ`;
+    if ($('admin-stat-worker')) {
+      $('admin-stat-worker').textContent = overview.worker_status === 'active' ? 'Active 24/7' : 'Stopped';
+      $('admin-stat-worker').style.color = overview.worker_status === 'active' ? '#10b981' : '#ef4444';
+    }
+
+    renderAdminUsersTable();
+    renderAdminPostsTable();
+  } catch (err) {
+    notice('Không thể tải dữ liệu quản trị: ' + err.message, true);
+  }
+}
+
+function switchAdminTab(tabName) {
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.adminTab === tabName);
+  });
+  for (const name of ['users', 'posts', 'system']) {
+    const panel = $(`admin-panel-${name}`);
+    if (panel) panel.hidden = (name !== tabName);
+  }
+}
+
+function renderAdminUsersTable(filter = '') {
+  const tbody = $('admin-users-tbody');
+  if (!tbody) return;
+  tbody.replaceChildren();
+
+  const query = (filter || '').toLowerCase().trim();
+  const users = adminData.users.filter(u => {
+    if (!query) return true;
+    return (u.email && u.email.toLowerCase().includes(query)) || (u.name && u.name.toLowerCase().includes(query));
+  });
+
+  if (!users.length) {
+    const tr = el('tr');
+    const td = el('td', '', 'Không tìm thấy người dùng phù hợp.');
+    td.colSpan = 6;
+    td.style.textAlign = 'center';
+    td.style.padding = '24px';
+    td.style.color = '#94a3b8';
+    tr.append(td);
+    tbody.append(tr);
+    return;
+  }
+
+  for (const u of users) {
+    const tr = el('tr');
+
+    // 1. User info
+    const tdUser = el('td');
+    const userCell = el('div', 'admin-user-cell');
+    const av = el('div', 'admin-user-avatar', (u.name || u.email || 'U').charAt(0).toUpperCase());
+    const copy = el('div');
+    copy.append(el('strong', '', u.name || 'Người dùng'), el('small', '', `${u.email} · ${u.id.slice(0, 15)}`));
+    userCell.append(av, copy);
+    tdUser.append(userCell);
+
+    // 2. Tier
+    const tdTier = el('td');
+    const tierBadge = el('span', `badge-tier-${u.tier || 'free'}`, (u.tier || 'free').toUpperCase());
+    tdTier.append(tierBadge);
+
+    // 3. Usage / Limit
+    const tdUsage = el('td');
+    const limitLabel = u.posts_limit >= 999999 ? 'Không giới hạn' : `${u.posts_limit} bài`;
+    tdUsage.append(el('strong', '', `${u.posts_used || 0} / ${limitLabel}`));
+    if (u.posts_limit < 999999) {
+      const pct = Math.min(100, Math.round(((u.posts_used || 0) / (u.posts_limit || 1)) * 100));
+      tdUsage.append(el('small', '', `${pct}% hạn mức tháng`));
+    }
+
+    // 4. Accounts
+    const tdAcc = el('td');
+    tdAcc.append(el('span', '', `${u.accounts_count || 0} kênh`));
+
+    // 5. Status
+    const tdStatus = el('td');
+    const isAct = u.status === 'active';
+    const statusBadge = el('span', isAct ? 'badge-status-active' : 'badge-status-suspended', isAct ? '● Hoạt động' : '✕ Bị khóa');
+    tdStatus.append(statusBadge);
+
+    // 6. Actions
+    const tdActions = el('td');
+    const actionGroup = el('div', 'admin-action-group');
+
+    // Quick Tier Select
+    const tierSelect = el('select', 'admin-select');
+    for (const [val, label, defaultLimit] of [
+      ['free', 'Free (10 bài)', 10],
+      ['pro', 'Pro (100 bài)', 100],
+      ['agency', 'Agency (Không giới hạn)', 999999]
+    ]) {
+      const opt = el('option', '', label);
+      opt.value = val;
+      opt.selected = (u.tier === val);
+      tierSelect.append(opt);
+    }
+    tierSelect.onchange = async () => {
+      const selected = tierSelect.value;
+      const limit = selected === 'agency' ? 999999 : (selected === 'pro' ? 100 : 10);
+      try {
+        await api(`/api/admin/users/${u.id}/tier`, {
+          method: 'POST',
+          body: JSON.stringify({ tier: selected, posts_limit: limit })
+        });
+        notice(`Đã cập nhật ${u.name || u.email} lên gói ${selected.toUpperCase()} (${limit >= 999999 ? 'Không giới hạn' : limit + ' bài/tháng'}).`);
+        renderAdminView();
+      } catch (err) {
+        notice(err.message, true);
+      }
+    };
+
+    // Toggle Status button (Lock / Unlock)
+    const toggleBtn = el('button', `admin-btn-sm ${isAct ? 'admin-btn-danger' : ''}`, isAct ? 'Khóa' : 'Mở');
+    toggleBtn.type = 'button';
+    toggleBtn.onclick = async () => {
+      const nextStatus = isAct ? 'suspended' : 'active';
+      if (!confirm(`Bạn có chắc muốn ${isAct ? 'KHÓA' : 'MỞ KHÓA'} tài khoản ${u.email}?`)) return;
+      try {
+        await api(`/api/admin/users/${u.id}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ status: nextStatus })
+        });
+        notice(`Đã ${isAct ? 'khóa' : 'mở khóa'} tài khoản ${u.email}.`);
+        renderAdminView();
+      } catch (err) {
+        notice(err.message, true);
+      }
+    };
+
+    actionGroup.append(tierSelect, toggleBtn);
+    tdActions.append(actionGroup);
+
+    tr.append(tdUser, tdTier, tdUsage, tdAcc, tdStatus, tdActions);
+    tbody.append(tr);
+  }
+}
+
+function renderAdminPostsTable() {
+  const tbody = $('admin-posts-tbody');
+  if (!tbody) return;
+  tbody.replaceChildren();
+
+  const posts = adminData.posts;
+  if (!posts.length) {
+    const tr = el('tr');
+    const td = el('td', '', 'Chưa có bài đăng nào trong hệ thống.');
+    td.colSpan = 5;
+    td.style.textAlign = 'center';
+    td.style.padding = '24px';
+    td.style.color = '#94a3b8';
+    tr.append(td);
+    tbody.append(tr);
+    return;
+  }
+
+  for (const p of posts) {
+    const tr = el('tr');
+
+    // Title
+    const tdTitle = el('td');
+    tdTitle.append(el('strong', '', p.title || 'Untitled Video'), el('small', '', `ID: ${p.id.slice(0, 8)}`));
+
+    // Author
+    const tdAuthor = el('td');
+    tdAuthor.append(el('span', '', p.user_name || 'Người dùng'), el('small', '', p.user_email || '—'));
+
+    // Channel
+    const tdChan = el('td');
+    tdChan.append(el('span', '', `${platformName(p.provider || 'youtube')}`), el('small', '', p.account_name || 'Kênh ẩn'));
+
+    // Status
+    const tdStatus = el('td');
+    tdStatus.append(el('span', `status ${p.status}`, labels[p.status] || p.status));
+
+    // Date
+    const tdDate = el('td');
+    tdDate.append(el('span', '', new Date(p.created_at * 1000).toLocaleString('vi-VN')));
+
+    tr.append(tdTitle, tdAuthor, tdChan, tdStatus, tdDate);
+    tbody.append(tr);
+  }
+}
+
+// Wire up Admin UI events on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = $('admin-user-search');
+  if (searchInput) searchInput.oninput = (e) => renderAdminUsersTable(e.target.value);
+
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.onclick = () => switchAdminTab(btn.dataset.adminTab);
+  });
+
+  const refBtn = $('btn-refresh-admin');
+  if (refBtn) refBtn.onclick = () => { renderAdminView(); notice('Đã làm mới dữ liệu quản trị.'); };
+
+  const n8nBtnTop = $('btn-admin-n8n-top');
+  if (n8nBtnTop) n8nBtnTop.onclick = () => window.open('https://n8n.toomi.vn/workflow/rg3KCmFJycBM7HaK', '_blank');
 });

@@ -12,8 +12,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/style.css?v=20261114.2"><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-  <script src="/static/app.js?v=20261114.2" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=20261114.admin1"><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="/static/app.js?v=20261114.admin1" defer></script>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
@@ -471,7 +471,139 @@
 
       </div><footer>OMNIPUBLISH <span>Private by design · Your channels, your call</span></footer>
 
-    </main>
+    
+        <section id="admin-view" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">TRUNG TÂM ĐIỀU HÀNH SAAS</span>
+              <h1>Quản trị hệ thống<span class="heading-dot">.</span></h1>
+              <p>Quản lý toàn bộ người dùng, cấp quyền gói cước (Free / Pro / Agency), hạn mức xuất bản và giám sát hệ thống.</p>
+            </div>
+            <div class="admin-top-actions">
+              <button type="button" class="secondary" id="btn-refresh-admin">⟳ Làm mới dữ liệu</button>
+              <button type="button" class="primary" id="btn-admin-n8n-top">⚡ Mở n8n Studio ↗</button>
+            </div>
+          </div>
+
+          <div class="stats admin-stats-grid">
+            <article>
+              <div class="stat-top"><span>Tổng người dùng</span><span class="stat-icon indigo">👥</span></div>
+              <strong id="admin-stat-users">0</strong>
+              <small><span class="positive">● Đang hoạt động</span> trên hệ thống</small>
+            </article>
+            <article>
+              <div class="stat-top"><span>Kênh liên kết (Toàn sàn)</span><span class="stat-icon green">📺</span></div>
+              <strong id="admin-stat-accounts">0</strong>
+              <small><span class="stat-muted">YouTube &amp; Facebook Pages</span></small>
+            </article>
+            <article>
+              <div class="stat-top"><span>Tổng bài xuất bản</span><span class="stat-icon cyan">🚀</span></div>
+              <strong id="admin-stat-posts">0</strong>
+              <small class="positive" id="admin-stat-posts-sub">Đã xuất bản thành công</small>
+            </article>
+            <article>
+              <div class="stat-top"><span>Publishing Worker</span><span class="stat-icon amber">⚙</span></div>
+              <strong id="admin-stat-worker" style="font-size:18px">Active 24/7</strong>
+              <small class="positive">● Background Task OK</small>
+            </article>
+          </div>
+
+          <div class="admin-tab-bar">
+            <button type="button" class="admin-tab-btn active" data-admin-tab="users">👥 Quản lý Người dùng &amp; Hạn mức</button>
+            <button type="button" class="admin-tab-btn" data-admin-tab="posts">📊 Giám sát Toàn bộ Bài đăng</button>
+            <button type="button" class="admin-tab-btn" data-admin-tab="system">⚙️ Hạ tầng &amp; Máy chủ</button>
+          </div>
+
+          <!-- Tab 1: Users -->
+          <div id="admin-panel-users" class="admin-panel card">
+            <div class="section-heading">
+              <div>
+                <h2>Danh sách Người dùng</h2>
+                <p>Nâng cấp gói cước, điều chỉnh số bài đăng và quản lý trạng thái tài khoản</p>
+              </div>
+              <div class="search-wrap">
+                <input type="text" id="admin-user-search" placeholder="Tìm theo email hoặc tên..." style="max-width:260px">
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Người dùng</th>
+                    <th>Gói cước</th>
+                    <th>Đã dùng / Hạn mức</th>
+                    <th>Kênh</th>
+                    <th>Trạng thái</th>
+                    <th style="text-align:right">Thao tác Quản trị</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-tbody">
+                  <tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px">Đang tải danh sách người dùng...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 2: All Posts -->
+          <div id="admin-panel-posts" class="admin-panel card" hidden>
+            <div class="section-heading">
+              <div>
+                <h2>Giám sát Toàn bộ Bài đăng</h2>
+                <p>Theo dõi hàng đợi và bài đăng của mọi thành viên trên toàn hệ thống</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Tiêu đề bài</th>
+                    <th>Người đăng</th>
+                    <th>Kênh / Mạng</th>
+                    <th>Trạng thái</th>
+                    <th>Thời gian</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-posts-tbody">
+                  <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px">Đang tải bài đăng...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 3: System Health -->
+          <div id="admin-panel-system" class="admin-panel card" hidden>
+            <div class="section-heading">
+              <div>
+                <h2>Trạng thái Cụm Hệ Thống &amp; Dịch Vụ</h2>
+                <p>Thông số giám sát tài nguyên máy chủ và các cổng kết nối</p>
+              </div>
+            </div>
+            <div class="system-health-grid">
+              <div class="health-card">
+                <strong>PostgreSQL / Supabase</strong>
+                <p>Cơ sở dữ liệu đám mây lưu trữ người dùng, bài đăng và token OAuth.</p>
+                <span class="pill positive">● Đã kết nối</span>
+              </div>
+              <div class="health-card">
+                <strong>Publishing Worker Engine</strong>
+                <p>Tiến trình ngầm quét hàng đợi 10 giây/lần và gửi video lên nền tảng.</p>
+                <span class="pill positive">● Đang chạy 24/7</span>
+              </div>
+              <div class="health-card">
+                <strong>n8n Workflow Automation</strong>
+                <p>Hệ thống tự động hóa ingest video TikTok/Reels và xử lý chuyển đổi video.</p>
+                <span class="pill positive">● Webhook v1 Sẵn sàng</span>
+              </div>
+              <div class="health-card">
+                <strong>Bộ nhớ NVMe Server</strong>
+                <p>Lưu trữ video tải lên tạm thời, tự động dọn dẹp sau 7 ngày.</p>
+                <span class="pill neutral">250 MB / File</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+</main>
 
   </div>
 

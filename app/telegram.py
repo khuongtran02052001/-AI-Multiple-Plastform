@@ -1,5 +1,6 @@
 """Telegram bot notification helper for publisher workflow with colored progress."""
 import logging
+from html import escape
 import httpx
 
 logger = logging.getLogger('publisher.telegram')
@@ -14,6 +15,9 @@ def get_colored_progress_bar(percent: int, total_blocks: int = 10) -> str:
 def build_status_message(source_url: str, label: str, percent: int, step_index: int,
                          file_info: str = '', video_title: str = '',
                          youtube_url: str = '', error_message: str = '') -> str:
+    source_url, label, file_info, video_title, youtube_url, error_message = (
+        escape(str(v), quote=True) for v in (source_url, label, file_info, video_title, youtube_url, error_message)
+    )
     step3_name = 'Tối ưu chuẩn Shorts 9:16 & thẻ #Shorts' if 'Short' in label else 'Tối ưu định dạng & thẻ video'
     if file_info and step_index >= 3:
         step3_name += f' ({file_info})'
@@ -74,7 +78,7 @@ def update_telegram_progress(token: str, chat_id: str | None, message_id: str | 
                              file_info: str = '', video_title: str = '',
                              youtube_url: str = '', error_message: str = ''):
     if not token or not chat_id or not message_id:
-        return
+        return False
     try:
         text = build_status_message(
             source_url=source_url,
@@ -97,6 +101,9 @@ def update_telegram_progress(token: str, chat_id: str | None, message_id: str | 
         with httpx.Client(timeout=5.0) as client:
             resp = client.post(url, json=payload)
             if resp.is_error:
-                logger.warning("Telegram editMessageText error %s: %s", resp.status_code, resp.text[:200])
+                logger.warning("Telegram editMessageText failed (HTTP %s)", resp.status_code)
+                return False
+            return resp.json().get("ok") is True
     except Exception as e:
-        logger.warning("Could not update Telegram message: %s", e)
+        logger.warning("Could not update Telegram message.")
+        return False

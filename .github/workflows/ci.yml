@@ -43,7 +43,10 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q app tools
       - name: Check browser JavaScript
-        run: node --check app/static/app.js
+        run: |
+          node --check app/static/app.js
+          node --check app/static/ui-utils.js
+          node tests/ui/ui-utils.test.cjs
       - name: Validate n8n workflow syntax
         run: node tools/check_workflows.mjs
       - name: Check installed dependencies

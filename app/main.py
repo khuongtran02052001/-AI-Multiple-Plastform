@@ -1571,6 +1571,9 @@ def create_app(config=None, engine=None, providers=None):
 
 
 
+    from app.tasks import register_tasks
+    register_tasks(app, db, require_session, mutation_auth, is_admin_session)
+
     root = Path(__file__).parent / 'static'
 
 

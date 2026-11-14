@@ -34,3 +34,10 @@ See UI_UX_REVIEW_20261114.md and PR checks for completed validation. Source audi
 - Backend admin checks now read current active DB user role; session/email/ID hardcoded grants removed. Session profile returns actual role. Frontend recognizes admin and superadmin without email grants.
 - Regression checks verify immediate demotion, restart does not regrant, and explicit superadmin restoration. Startup migration has NOT run on production or been tested against real PostgreSQL; snapshot DB before release and verify owner role after migration.
 - Remaining work: audit every API endpoint (including OAuth disconnect), explicit role administration/audit logging, PostgreSQL quota concurrency validation, provider reconciliation, pagination. Earlier sections describing hardcoded role grants are historical and superseded by this update.
+
+## Update: Task Center
+- Added GET /api/tasks?limit=25&offset=0 (cookie-auth, owner-filtered; admin DB role can view all). Combines ingestion and direct-post records without duplicating linked posts. No credentials included.
+- Added POST /api/tasks/{ingest|post}/{id}/cancel (CSRF + ownership + conditional state update). Cancels pending ingests or unclaimed queued/draft posts; rejects downloading/posting/terminal work. Does not refund quota.
+- New Tasks navigation shows actual DB stage, source/result links, privacy, IDs and errors; refreshes while visible; offers existing failed-post queue action only. Unknown jobs never get a retry button. No fake progress percentages.
+- Existing n8n workflow rg3KCmFJycBM7HaK integrates via the existing ingestion API and polling/ack contract; tasks become visible automatically if ingestion user_id is assigned correctly. No n8n production workflow was inspected/modified: no n8n connector is available and browser access was previously denied by approval usage limit. Do not claim live integration tested.
+- Still needed: detailed timestamps/stage events, downloader retry with a new durable request key and authorization, platform-processing reconciliation, Telegram task-link button, real n8n end-to-end acceptance. No claim of provider processing completion is made.

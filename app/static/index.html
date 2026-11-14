@@ -12,8 +12,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/style.css?v=20261114.admin1"><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-  <script src="/static/app.js?v=20261114.admin1" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=20261114.uiux2"><script src="/static/vendor/chart.umd.min.js?v=20261114" defer></script>
+  <script src="/static/app.js?v=20261114.uiux2" defer></script>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
@@ -195,24 +195,108 @@
 
           <aside class="composer-side"><article class="card preview-card"><div class="preview-label">LIVE PREVIEW <span class="preview-live-dot"></span></div><div class="preview-switcher" role="group" aria-label="Choose preview platform"><button type="button" id="preview-tab-youtube" class="preview-tab active" data-preview="youtube">YouTube Shorts</button><button type="button" class="preview-tab" data-preview="tiktok">TikTok</button><button type="button" class="preview-tab" data-preview="facebook">Facebook Reels</button></div><div class="video-preview" id="preview-placeholder"><span class="play-symbol">▷</span><span>Your video will appear here</span></div><video id="video-preview" controls hidden></video><div class="preview-meta"><span class="preview-avatar">S</span><div><strong id="preview-title">Your post title</strong><small id="preview-channel">Choose a channel to get started</small></div></div><p id="preview-description" class="preview-description">Your caption and hashtags will appear here.</p></article>
 
-            <article class="card settings-card"><h2>Publishing settings</h2><label for="privacy">YouTube privacy</label><select id="privacy"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select><p class="field-help">Facebook publishing follows the connected Page permissions.</p><div class="field-heading"><label>Định dạng xuất bản YouTube</label></div>
-<div class="format-toggle-group">
-  <button type="button" id="fmt-shorts-btn" class="format-btn active" title="Video dọc 9:16 hoặc vuông, tối đa 3 phút">
-    <span class="format-icon">📱</span>
-    <span class="format-meta">
-      <strong>YouTube Shorts</strong>
-      <small>Video dọc 9:16 (≤ 3 phút)</small>
-    </span>
-  </button>
-  <button type="button" id="fmt-regular-btn" class="format-btn" title="Video ngang 16:9 hoặc mọi tỷ lệ, không giới hạn độ dài">
-    <span class="format-icon">🎬</span>
-    <span class="format-meta">
-      <strong>Video thường / dài</strong>
-      <small>Ngang 16:9 (Không giới hạn)</small>
-    </span>
-  </button>
-</div>
-<input id="shorts" type="checkbox" checked hidden><label class="check-line"><input id="kids" type="checkbox"><span>Made for kids<small>Set the audience declaration on YouTube</small></span></label><label for="schedule">Schedule for later <span class="optional">optional</span></label><input id="schedule" type="datetime-local"><p class="field-help" id="timezone-label"></p><div class="publish-actions"><button id="queue-button" type="submit" class="primary">Add to publishing queue <span>→</span></button><button id="draft-button" type="button" class="secondary">Save as draft</button></div><p class="publish-note">Nothing is published until you confirm.</p></article></aside></div></form></section>
+            <article class="card settings-card">
+              <h2>Cài đặt xuất bản (Publishing Settings)</h2>
+
+              <!-- Hint when no channels selected -->
+              <div id="settings-no-channel-alert" class="settings-empty-hint" style="padding:14px; background:#1e293b55; border:1px dashed #334155; border-radius:8px; margin:14px 0; color:#94a3b8; font-size:12px; text-align:center;">
+                👆 <i>Vui lòng tích chọn ít nhất 1 kênh ở Bước 1 để cấu hình tùy chọn xuất bản.</i>
+              </div>
+
+              <!-- YouTube Platform Settings Group -->
+              <div id="settings-group-youtube" class="platform-settings-group" hidden>
+                <div class="pub-platform-header youtube">
+                  <span class="platform-icon youtube">▶</span>
+                  <div>
+                    <strong>Cài đặt YouTube</strong>
+                    <small id="settings-yt-channels-count">Áp dụng cho kênh YouTube đã chọn</small>
+                  </div>
+                </div>
+
+                <label for="privacy">Quyền riêng tư YouTube</label>
+                <select id="privacy">
+                  <option value="public">Công khai (Public)</option>
+                  <option value="unlisted">Không công khai (Unlisted)</option>
+                  <option value="private" selected>Riêng tư (Private)</option>
+                </select>
+
+                <div class="field-heading"><label>Định dạng xuất bản YouTube</label></div>
+                <div class="format-toggle-group">
+                  <button type="button" id="fmt-shorts-btn" class="format-btn active" title="Video dọc 9:16 hoặc vuông, tối đa 3 phút">
+                    <span class="format-icon">📱</span>
+                    <span class="format-meta">
+                      <strong>YouTube Shorts</strong>
+                      <small>Dọc 9:16 (≤ 3 phút)</small>
+                    </span>
+                  </button>
+                  <button type="button" id="fmt-regular-btn" class="format-btn" title="Video ngang 16:9 hoặc mọi tỷ lệ, không giới hạn độ dài">
+                    <span class="format-icon">🎬</span>
+                    <span class="format-meta">
+                      <strong>Video thường / dài</strong>
+                      <small>Ngang 16:9 (Chuẩn)</small>
+                    </span>
+                  </button>
+                </div>
+                <input id="shorts" type="checkbox" checked hidden>
+
+                <label class="check-line" style="margin-top:10px;">
+                  <input id="kids" type="checkbox">
+                  <span>Dành cho trẻ em (Made for kids)<small>Khai báo đối tượng người xem trên YouTube</small></span>
+                </label>
+              </div>
+
+              <!-- Facebook Platform Settings Group -->
+              <div id="settings-group-facebook" class="platform-settings-group" hidden>
+                <div class="pub-platform-header facebook">
+                  <span class="platform-icon facebook">f</span>
+                  <div>
+                    <strong>Cài đặt Facebook Pages</strong>
+                    <small id="settings-fb-channels-count">Áp dụng cho Fanpage Facebook đã chọn</small>
+                  </div>
+                </div>
+
+                <div class="field-heading"><label>Định dạng xuất bản Facebook</label></div>
+                <div class="format-toggle-group">
+                  <button type="button" id="fb-fmt-reels-btn" class="format-btn active" title="Đăng dưới dạng Facebook Reels (video ngắn dọc)">
+                    <span class="format-icon">📱</span>
+                    <span class="format-meta">
+                      <strong>Facebook Reels</strong>
+                      <small>Video ngắn nổi bật</small>
+                    </span>
+                  </button>
+                  <button type="button" id="fb-fmt-feed-btn" class="format-btn" title="Đăng dưới dạng Video bài viết trên Bảng tin của Trang">
+                    <span class="format-icon">📰</span>
+                    <span class="format-meta">
+                      <strong>Video Bảng tin</strong>
+                      <small>Bài đăng Fanpage</small>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="fb-notice-card" style="margin-top:10px; padding:10px 12px; background:#131c2b; border:1px solid #1e2d42; border-radius:8px; font-size:11px; color:#94a3b8;">
+                  <span style="color:#60a5fa">ℹ️ Quyền hiển thị Fanpage:</span> Video sẽ được xuất bản công khai trực tiếp lên Trang của bạn để phân phối đến người theo dõi.
+                </div>
+              </div>
+
+              <!-- Shared Schedule Group -->
+              <div id="settings-group-schedule" class="platform-settings-group">
+                <div class="pub-platform-header schedule">
+                  <span class="platform-icon schedule">⏰</span>
+                  <div>
+                    <strong>Hẹn giờ đăng (Tùy chọn)</strong>
+                    <small>Lên lịch tự động đăng đồng loạt cho các kênh</small>
+                  </div>
+                </div>
+                <input id="schedule" type="datetime-local">
+                <p class="field-help" id="timezone-label"></p>
+              </div>
+
+              <div class="publish-actions">
+                <button id="queue-button" type="submit" class="primary">Thêm vào hàng đợi xuất bản <span>→</span></button>
+                <button id="draft-button" type="button" class="secondary">Lưu bản nháp</button>
+              </div>
+              <p class="publish-note">Chỉ xuất bản khi bạn xác nhận gửi vào hàng đợi.</p>
+            </article></aside></div></form></section>
 
         <section id="history-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">EVERY POST, ACCOUNTED FOR</span><h1>Posts<span class="heading-dot">.</span></h1><p>Follow each post from draft to delivery.</p></div><button class="secondary" id="refresh-posts">Refresh ↻</button></div><div class="stats history-stats"><article><span>All posts</span><strong id="stat-total">0</strong></article><article><span>In queue</span><strong id="stat-queued">0</strong></article><article><span>Delivered</span><strong id="stat-submitted">0</strong></article><article><span>Needs attention</span><strong id="stat-errors">0</strong></article></div><div class="history-toolbar"><label for="status-filter">Filter by status</label><select id="status-filter"><option value="all">All posts</option><option value="draft">Draft</option><option value="queued">Queued</option><option value="submitted">Delivered</option><option value="failed">Failed</option><option value="unknown">Needs review</option></select></div><div id="post-list"></div><p class="field-help">“Delivered” means the platform API returned a post ID. The platform may still be processing your video.</p></section>
 
@@ -227,10 +311,23 @@
             <h1>Báo cáo & Phân tích<span class="heading-dot">.</span></h1>
             <p>Tổng hợp hiệu quả xuất bản video, tỷ lệ thành công và xu hướng theo thời gian thực.</p>
           </div>
-          <div class="analytics-timeframe-selector">
-            <button type="button" class="analytics-tf-btn active" data-days="7">7 ngày qua</button>
-            <button type="button" class="analytics-tf-btn" data-days="14">14 ngày qua</button>
-            <button type="button" class="analytics-tf-btn" data-days="30">30 ngày qua</button>
+
+          <div class="analytics-filter-bar">
+            <!-- Filter by Platform/Channel -->
+            <div class="analytics-channel-filter">
+              <select id="analytics-platform-select" class="admin-select" style="padding:8px 12px; font-weight:600; border-radius:8px;">
+                <option value="all">🌐 Tất cả nền tảng &amp; kênh</option>
+                <option value="youtube">▶ Kênh YouTube</option>
+                <option value="facebook">f Fanpage Facebook</option>
+              </select>
+            </div>
+
+            <!-- Timeframe selector -->
+            <div class="analytics-timeframe-selector">
+              <button type="button" class="analytics-tf-btn active" data-days="7">7 ngày qua</button>
+              <button type="button" class="analytics-tf-btn" data-days="14">14 ngày qua</button>
+              <button type="button" class="analytics-tf-btn" data-days="30">30 ngày qua</button>
+            </div>
           </div>
         </div>
 
@@ -260,11 +357,11 @@
             </div>
           </article>
           <article>
-            <div class="stat-icon-wrap" style="color:#38bdf8">◎</div>
+            <div class="stat-icon-wrap" style="color:#06b6d4">◎</div>
             <div>
               <span>Kênh kết nối hoạt động</span>
               <strong id="analytics-active-channels">0</strong>
-              <small id="analytics-channels-sub">YouTube & Facebook</small>
+              <small class="positive">Sẵn sàng xuất bản</small>
             </div>
           </article>
         </div>
@@ -272,8 +369,8 @@
         <article class="card chart-card-modern">
           <div class="section-heading">
             <div>
-              <h2>Xu hướng xuất bản video theo ngày</h2>
-              <p>Số lượng video đăng thành công theo chu kỳ thời gian thực</p>
+              <h2 id="analytics-chart-title">Xu hướng xuất bản video theo ngày</h2>
+              <p id="analytics-chart-sub">Số lượng video đăng thành công theo chu kỳ thời gian thực</p>
             </div>
             <div class="chart-legend-wrap">
               <span class="chart-legend-dot dot-indigo"></span> <span>Video đã xuất bản</span>
@@ -282,6 +379,44 @@
           </div>
           <div class="chart-canvas-container" style="position:relative; height:280px; width:100%; margin-top:16px;">
             <canvas id="analyticsChart"></canvas>
+          </div>
+        </article>
+
+        <!-- Detailed Views & Post Performance Table -->
+        <article class="card analytics-posts-card" style="margin-top:20px;">
+          <div class="section-heading">
+            <div>
+              <h2>Thống kê chi tiết lượt xem bài đăng theo kênh &amp; nền tảng</h2>
+              <p>Chi tiết các bài đăng, định dạng, nền tảng xuất bản và chỉ số tương tác</p>
+            </div>
+            <div class="analytics-table-filters" style="display:flex; gap:10px; align-items:center;">
+              <input type="text" id="analytics-search-posts" placeholder="Tìm theo tên bài..." style="max-width:200px; padding:6px 10px; font-size:12px;">
+              <select id="analytics-status-filter" class="admin-select" style="padding:6px 10px; font-size:12px;">
+                <option value="all">Tất cả trạng thái</option>
+                <option value="submitted">Thành công (Delivered)</option>
+                <option value="queued">Đang xếp hàng (Queued)</option>
+                <option value="failed">Thất bại (Failed)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Video / Tiêu đề</th>
+                  <th>Kênh xuất bản</th>
+                  <th>Định dạng</th>
+                  <th>Lượt xem (Views)</th>
+                  <th>Trạng thái</th>
+                  <th>Thời gian đăng</th>
+                  <th style="text-align:right">Xem trực tiếp</th>
+                </tr>
+              </thead>
+              <tbody id="analytics-posts-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
           </div>
         </article>
       </section>

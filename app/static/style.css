@@ -893,3 +893,58 @@
   background: #7f1d1d;
   color: #ffffff;
 }
+
+
+/* ========================================================
+   DYNAMIC PLATFORM PUBLISHING SETTINGS & ANALYTICS STYLES
+   ======================================================== */
+.platform-settings-group {
+  margin-top: 14px;
+  padding: 14px;
+  background: #0d1421;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+}
+
+.pub-platform-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1a2333;
+}
+
+.pub-platform-header strong {
+  display: block;
+  font-size: 13px;
+  color: #f1f5f9;
+}
+
+.pub-platform-header small {
+  display: block;
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.pub-platform-header.youtube .platform-icon {
+  background: #3b181c;
+  color: #ef4444;
+}
+
+.pub-platform-header.facebook .platform-icon {
+  background: #182844;
+  color: #3b82f6;
+}
+
+.pub-platform-header.schedule .platform-icon {
+  background: #27213d;
+  color: #a78bfa;
+}
+
+.analytics-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}

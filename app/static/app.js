@@ -85,6 +85,7 @@ function preview() {
   const checked=[...document.querySelectorAll('#channel-picker input:checked')].map(n=>state.accounts.find(a=>a.id===n.value)?.name).filter(Boolean);
 
   $('preview-channel').textContent=checked.join(' · ')||'Choose a channel to get started';
+  updatePublishingSettingsUI();
 
 }
 
@@ -1477,4 +1478,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const n8nBtnTop = $('btn-admin-n8n-top');
   if (n8nBtnTop) n8nBtnTop.onclick = () => window.open('https://n8n.toomi.vn/workflow/rg3KCmFJycBM7HaK', '_blank');
+});
+
+
+// --- Facebook Format and Publishing Settings UI helpers ---
+function setFacebookFormat(isReels) {
+  var box = document.getElementById('fb_reels');
+  var btnReels = document.getElementById('fb-fmt-reels-btn');
+  var btnFeed = document.getElementById('fb-fmt-feed-btn');
+  var tabFb = document.getElementById('preview-tab-facebook');
+  if (box) box.checked = isReels;
+  if (btnReels && btnFeed) {
+    btnReels.classList.toggle('active', !!isReels);
+    btnFeed.classList.toggle('active', !isReels);
+  }
+  if (tabFb) {
+    tabFb.textContent = isReels ? 'Facebook Reels' : 'Facebook Video (Feed)';
+  }
+}
+
+function updatePublishingSettingsUI() {
+  const checkedInputs = [...document.querySelectorAll('#channel-picker input:checked')];
+  const checkedAccounts = checkedInputs.map(input => (state.accounts || []).find(a => a.id === input.value)).filter(Boolean);
+
+  const ytAccounts = checkedAccounts.filter(a => a.provider === 'youtube');
+  const fbAccounts = checkedAccounts.filter(a => a.provider === 'facebook');
+
+  const noHint = document.getElementById('settings-no-channel-alert');
+  const ytGroup = document.getElementById('settings-group-youtube');
+  const fbGroup = document.getElementById('settings-group-facebook');
+
+  if (checkedAccounts.length === 0) {
+    if (noHint) noHint.hidden = false;
+    if (ytGroup) ytGroup.hidden = true;
+    if (fbGroup) fbGroup.hidden = true;
+  } else {
+    if (noHint) noHint.hidden = true;
+    if (ytGroup) {
+      ytGroup.hidden = ytAccounts.length === 0;
+      const countEl = document.getElementById('settings-yt-channels-count');
+      if (countEl && ytAccounts.length > 0) {
+        countEl.textContent = `Áp dụng cho ${ytAccounts.map(a => a.name).join(', ')}`;
+      }
+    }
+    if (fbGroup) {
+      fbGroup.hidden = fbAccounts.length === 0;
+      const countEl = document.getElementById('settings-fb-channels-count');
+      if (countEl && fbAccounts.length > 0) {
+        countEl.textContent = `Áp dụng cho ${fbAccounts.map(a => a.name).join(', ')}`;
+      }
+    }
+  }
+
+  // Auto switch preview tab
+  if (fbAccounts.length > 0 && ytAccounts.length === 0) {
+    const fbTab = document.querySelector('[data-preview="facebook"]');
+    if (fbTab && !fbTab.classList.contains('active')) fbTab.click();
+  } else if (ytAccounts.length > 0) {
+    const ytTab = document.querySelector('[data-preview="youtube"]');
+    if (ytTab && !ytTab.classList.contains('active')) ytTab.click();
+  }
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Bind Facebook format buttons
+  const btnFbReels = document.getElementById('fb-fmt-reels-btn');
+  if (btnFbReels) btnFbReels.onclick = () => setFacebookFormat(true);
+  const btnFbFeed = document.getElementById('fb-fmt-feed-btn');
+  if (btnFbFeed) btnFbFeed.onclick = () => setFacebookFormat(false);
+
+  // Bind Analytics Platform select
+  const platSelect = document.getElementById('analytics-platform-select');
+  if (platSelect) {
+    platSelect.onchange = (e) => renderAnalytics(currentAnalyticsDays, e.target.value);
+  }
+
+  // Bind Analytics Timeframe buttons
+  document.querySelectorAll('.analytics-tf-btn').forEach(btn => {
+    btn.onclick = () => renderAnalytics(parseInt(btn.dataset.days), currentAnalyticsPlatform);
+  });
+
+  // Bind Analytics Posts table search & status filter
+  const postSearch = document.getElementById('analytics-search-posts');
+  const statFilter = document.getElementById('analytics-status-filter');
+  if (postSearch) {
+    postSearch.oninput = () => renderAnalyticsPostsTable(postSearch.value, statFilter ? statFilter.value : 'all');
+  }
+  if (statFilter) {
+    statFilter.onchange = () => renderAnalyticsPostsTable(postSearch ? postSearch.value : '', statFilter.value);
+  }
 });

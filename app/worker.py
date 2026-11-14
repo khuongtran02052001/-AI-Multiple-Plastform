@@ -180,23 +180,27 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
         file_info_note = f"{file['width']}x{file['height']}"
 
         if shorts_mode == 'short':
-            shorts = True
-            if not is_vertical:
-                update_telegram_progress(
-                    settings.telegram_bot_token, chat_id, msg_id, source_url, label, 50, step_index=3,
-                    file_info="Chuyển sang 9:16 Shorts/Reels...", target_platform=target_platform
-                )
-                from app.tiktok_ingest import convert_to_vertical_short
-                file = convert_to_vertical_short(file)
-                is_vertical = True
-                file_info_note = "Đã chuyển dọc 720x1280"
+            if file['duration'] > 185:
+                shorts = False
+                file_info_note = f"Dài {int(file['duration'])}s (>3p) · chuyển video thường"
             else:
-                file_info_note = f"Gốc dọc {file['width']}x{file['height']}" 
-            if '#Shorts' not in title and '#shorts' not in title and '#Shorts' not in description and '#shorts' not in description:
-                if len(title) <= 92:
-                    title = f"{title} #Shorts"
+                shorts = True
+                if not is_vertical:
+                    update_telegram_progress(
+                        settings.telegram_bot_token, chat_id, msg_id, source_url, label, 50, step_index=3,
+                        file_info="Chuyển sang 9:16 Shorts/Reels...", target_platform=target_platform
+                    )
+                    from app.tiktok_ingest import convert_to_vertical_short
+                    file = convert_to_vertical_short(file)
+                    is_vertical = True
+                    file_info_note = "Đã chuyển dọc 720x1280"
                 else:
-                    description = (description + '\n\n#Shorts').strip()
+                    file_info_note = f"Gốc dọc {file['width']}x{file['height']}" 
+                if '#Shorts' not in title and '#shorts' not in title and '#Shorts' not in description and '#shorts' not in description:
+                    if len(title) <= 92:
+                        title = f"{title} #Shorts"
+                    else:
+                        description = (description + '\n\n#Shorts').strip()
         elif shorts_mode == 'video':
             shorts = False
             title = re.sub(r'#shorts? ', '', title, flags=re.IGNORECASE).strip()
@@ -269,12 +273,14 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
                 Path(file['path']).unlink(missing_ok=True)
             except OSError:
                 pass
-        logger.error('Video import failed for ingestion job.')
+        logger.error('Video import failed for ingestion job: %s', exc)
+        from app.tiktok_ingest import DownloadError
+        err_msg = str(exc) if (isinstance(exc, DownloadError) and 'vượt quá' in str(exc)) else 'Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.'
         notified = update_telegram_progress(settings.telegram_bot_token, chat_id, msg_id, source_url, label, -1, step_index=2,
-                                 target_platform=target_platform, error_message='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.')
+                                 target_platform=target_platform, error_message=err_msg)
         with engine.begin() as c:
             c.execute(update(ingests).where(ingests.c.id == ingest_id).values(
-                status='failed', error='Không lấy được video hợp lệ. Kiểm tra quyền tải và liên kết.',
+                status='failed', error=err_msg,
                 lease_until=None, updated_at=now, notified_at=now if notified else None))
     return True
 

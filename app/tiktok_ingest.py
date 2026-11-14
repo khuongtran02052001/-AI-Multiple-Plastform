@@ -64,8 +64,8 @@ def _probe(path: Path):
         width, height = int(video['width']), int(video['height'])
         if duration <= 0 or width <= 0 or height <= 0:
             raise ValueError('Missing video metadata')
-        if duration > 180:
-            raise DownloadError('Bản tự động hiện chỉ nhận video tối đa 180 giây.')
+        if duration > 900:
+            raise DownloadError(f'Video dài {int(duration)}s vượt quá giới hạn cho phép (tối đa 15 phút).')
         return duration, width, height
     except DownloadError:
         raise

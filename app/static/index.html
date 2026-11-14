@@ -12,7 +12,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="/static/style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
@@ -219,7 +220,71 @@
 
         <section id="calendar-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">MAKE SPACE FOR WHAT’S NEXT</span><h1>Publishing calendar<span class="heading-dot">.</span></h1><p>A clear view of your queue and publishing history.</p></div><button class="primary" data-view="compose">＋ <span>Schedule a post</span></button></div><div class="card calendar-card"><div class="section-heading"><div><h2>Upcoming schedule</h2><p>Your queued posts and publishing dates</p></div><button class="secondary" data-view="history">View all posts</button></div><div id="calendar-list" class="calendar-list"><div class="empty-state"><strong>Your calendar is ready when you are</strong><p>Schedule a post to see it here.</p><button class="secondary" data-view="compose">Create a scheduled post</button></div></div></div></section>
 
-        <section id="analytics-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">LEARN FROM EVERY POST</span><h1>Analytics<span class="heading-dot">.</span></h1><p>A unified snapshot of your publishing performance.</p></div><span class="pill neutral">Last 30 days</span></div><div class="stats analytics-stats"><article><span>Video views</span><strong>128.4k</strong><small><span class="positive">↑ 18.2%</span> vs. previous 30 days</small></article><article><span>Engagement rate</span><strong>6.8%</strong><small><span class="positive">↑ 0.9%</span> vs. previous 30 days</small></article><article><span>Posts published</span><strong id="analytics-published">0</strong><small>Across connected channels</small></article></div><article class="card chart-card"><div class="section-heading"><div><h2>Views over time</h2><p>Cross-platform performance</p></div><span class="chart-legend"><i></i> Views</span></div><div class="chart-area" role="img" aria-label="Illustrative views trend over the last 30 days"><div class="chart-y"><span>40k</span><span>30k</span><span>20k</span><span>10k</span><span>0</span></div><div class="chart-lines"><i></i><i></i><i></i><i></i><svg viewBox="0 0 800 220" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7778ff" stop-opacity=".27"/><stop offset="1" stop-color="#7778ff" stop-opacity="0"/></linearGradient></defs><path d="M0 178 C45 162 56 170 94 146 S145 166 193 128 S248 141 291 116 S348 130 389 92 S446 111 491 96 S552 115 592 70 S657 99 699 48 S750 65 800 22 L800 220 L0 220Z" fill="url(#chartFill)"/><path d="M0 178 C45 162 56 170 94 146 S145 166 193 128 S248 141 291 116 S348 130 389 92 S446 111 491 96 S552 115 592 70 S657 99 699 48 S750 65 800 22" fill="none" stroke="#8581ff" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><div class="chart-x"><span>Oct 14</span><span>Oct 21</span><span>Oct 28</span><span>Nov 4</span><span>Nov 12</span></div></div></div><p class="analytics-note">Performance metrics are illustrative until platform analytics are connected.</p></article></section>
+        <section id="analytics-view" class="view" hidden>
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">PHÂN TÍCH HIỆU SUẤT XUẤT BẢN</span>
+            <h1>Báo cáo & Phân tích<span class="heading-dot">.</span></h1>
+            <p>Tổng hợp hiệu quả xuất bản video, tỷ lệ thành công và xu hướng theo thời gian thực.</p>
+          </div>
+          <div class="analytics-timeframe-selector">
+            <button type="button" class="analytics-tf-btn active" data-days="7">7 ngày qua</button>
+            <button type="button" class="analytics-tf-btn" data-days="14">14 ngày qua</button>
+            <button type="button" class="analytics-tf-btn" data-days="30">30 ngày qua</button>
+          </div>
+        </div>
+
+        <div class="stats analytics-stats-dynamic">
+          <article>
+            <div class="stat-icon-wrap" style="color:#6366f1">▤</div>
+            <div>
+              <span>Tổng bài đã xuất bản</span>
+              <strong id="analytics-total-published">0</strong>
+              <small class="positive" id="analytics-pub-sub">Thành công lên kênh</small>
+            </div>
+          </article>
+          <article>
+            <div class="stat-icon-wrap" style="color:#10b981">✓</div>
+            <div>
+              <span>Tỷ lệ hoàn thành (Success)</span>
+              <strong id="analytics-success-rate">100%</strong>
+              <small class="positive">Hàng đợi xuất bản ổn định</small>
+            </div>
+          </article>
+          <article>
+            <div class="stat-icon-wrap" style="color:#f59e0b">⏳</div>
+            <div>
+              <span>Đang xếp hàng (Queue)</span>
+              <strong id="analytics-in-queue">0</strong>
+              <small id="analytics-queue-sub">Bài đang chờ đến giờ</small>
+            </div>
+          </article>
+          <article>
+            <div class="stat-icon-wrap" style="color:#38bdf8">◎</div>
+            <div>
+              <span>Kênh kết nối hoạt động</span>
+              <strong id="analytics-active-channels">0</strong>
+              <small id="analytics-channels-sub">YouTube & Facebook</small>
+            </div>
+          </article>
+        </div>
+
+        <article class="card chart-card-modern">
+          <div class="section-heading">
+            <div>
+              <h2>Xu hướng xuất bản video theo ngày</h2>
+              <p>Số lượng video đăng thành công theo chu kỳ thời gian thực</p>
+            </div>
+            <div class="chart-legend-wrap">
+              <span class="chart-legend-dot dot-indigo"></span> <span>Video đã xuất bản</span>
+              <span class="chart-legend-dot dot-amber" style="margin-left:14px;"></span> <span>Đang xếp hàng / lỗi</span>
+            </div>
+          </div>
+          <div class="chart-canvas-container" style="position:relative; height:280px; width:100%; margin-top:16px;">
+            <canvas id="analyticsChart"></canvas>
+          </div>
+        </article>
+      </section>
 
         <section id="developer-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">CONNECT YOUR WORKFLOWS</span><h1>Automations & API<span class="heading-dot">.</span></h1><p>Bring your publishing pipeline into the tools you already use.</p></div></div><div class="developer-grid"><article class="card developer-card"><span class="developer-icon">⌘</span><h2>Automation Webhooks & n8n</h2><p>Kết nối n8n hoặc hệ thống tự động của bạn để nhận và xuất bản video tức thì.</p><div class="integration-tags"><span>n8n</span><span>Telegram</span><span>Make</span><span>Zapier</span></div><div class="endpoint-row"><span>Workflow n8n</span><span class="endpoint-status" style="color:#10b981">Đang hoạt động</span></div><button id="btn-open-n8n" class="secondary" type="button">Mở Workflow n8n ↗</button></article><article class="card developer-card"><span class="developer-icon">{ }</span><h2>REST API v1</h2><p>API xuất bản video chuẩn dành cho n8n và các nhà phát triển.</p><div class="api-callout"><span>Endpoint xuất bản</span><strong>POST /api/v1/publish</strong></div><div class="endpoint-row"><span>Xác thực</span><span>Header Authorization: Bearer</span></div><button id="btn-quick-pricing" class="secondary" type="button">Xem bảng giá & hạn ngạch</button></article></div>
 
@@ -311,7 +376,98 @@
 
         </article></section>
 
-        <section id="settings-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">BUILT AROUND YOUR WORKFLOW</span><h1>Workspace settings<span class="heading-dot">.</span></h1><p>Review your workspace health and deployment configuration.</p></div></div><article class="card settings-overview"><div class="card-title"><span class="step">01</span><h2>Workspace overview</h2></div><div id="settings-info" class="settings-info"></div></article><article class="card settings-overview"><div class="card-title"><span class="step">02</span><h2>Team & access</h2></div><div class="team-row"><span class="admin-avatar">K</span><div><strong id="settings-user-name">Workspace admin</strong><small id="settings-user-role">Administrator · Full access</small></div><span class="pill neutral">You</span></div><p class="field-help">This private workspace currently uses a single administrator account. Invite and role management can be configured in your deployment.</p></article></section>
+        <section id="settings-view" class="view" hidden>
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">HỆ THỐNG & QUẢN TRỊ KHÔNG GIAN LÀM VIỆC</span>
+            <h1>Cài đặt Workspace<span class="heading-dot">.</span></h1>
+            <p>Theo dõi tình trạng hạ tầng máy chủ VPS, phân quyền tài khoản và cấu hình hệ thống.</p>
+          </div>
+        </div>
+
+        <!-- Step 01: Infrastructure Health Grid -->
+        <article class="card settings-card-modern">
+          <div class="card-title">
+            <span class="step">01</span>
+            <h2>Tình trạng hạ tầng máy chủ & Kết nối</h2>
+            <span class="pill positive" style="margin-left:auto;">● Tất cả dịch vụ hoạt động</span>
+          </div>
+          <div class="infra-grid">
+            <div class="infra-item">
+              <div class="infra-head">
+                <span class="infra-icon">🗄️</span>
+                <div>
+                  <strong>Cơ sở dữ liệu (Database)</strong>
+                  <small id="infra-db-val">Supabase / PostgreSQL</small>
+                </div>
+              </div>
+              <div class="infra-status"><span class="dot-green"></span> Kết nối SSL bảo mật</div>
+            </div>
+
+            <div class="infra-item">
+              <div class="infra-head">
+                <span class="infra-icon">⚡</span>
+                <div>
+                  <strong>Động cơ xuất bản (Worker Engine)</strong>
+                  <small id="infra-worker-val">Hàng đợi nền đang chạy</small>
+                </div>
+              </div>
+              <div class="infra-status"><span class="dot-green"></span> Sẵn sàng xử lý video 24/7</div>
+            </div>
+
+            <div class="infra-item">
+              <div class="infra-head">
+                <span class="infra-icon">💾</span>
+                <div>
+                  <strong>Lưu trữ Video (VPS NVMe Storage)</strong>
+                  <small id="infra-storage-val">Tự dọn dẹp sau 7 ngày</small>
+                </div>
+              </div>
+              <div class="infra-status"><span class="dot-green"></span> Giới hạn tải lên: 250 MB/file</div>
+            </div>
+
+            <div class="infra-item">
+              <div class="infra-head">
+                <span class="infra-icon">🤖</span>
+                <div>
+                  <strong>Tích hợp n8n & Telegram Bot</strong>
+                  <small>Webhook API v1</small>
+                </div>
+              </div>
+              <div class="infra-status"><span class="dot-green"></span> Đang kết nối Bot @ytb_n8n_at_bot</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Step 02: Team & Access Profile -->
+        <article class="card settings-card-modern" style="margin-top:20px;">
+          <div class="card-title">
+            <span class="step">02</span>
+            <h2>Hồ sơ tài khoản & Quyền hạn</h2>
+          </div>
+          <div class="user-profile-banner">
+            <div class="user-profile-left">
+              <span class="admin-avatar user-big-avatar">K</span>
+              <div>
+                <div class="user-name-row">
+                  <h3 id="settings-user-name">Khương Trần</h3>
+                  <span id="settings-role-badge" class="badge-super-admin">👑 Super Admin</span>
+                  <span id="settings-plan-badge" class="badge-tier-pro">💎 Gói Pro Không Giới Hạn</span>
+                </div>
+                <p id="settings-user-email" class="user-subtext">khuongtran227@gmail.com</p>
+                <div class="user-meta-tags">
+                  <span id="settings-user-id">ID: usr_27e2530c-2ea</span>
+                  <span>Đăng nhập qua Google OAuth</span>
+                  <span class="text-green">● Đang hoạt động</span>
+                </div>
+              </div>
+            </div>
+            <div class="user-profile-actions">
+              <button id="btn-settings-logout" type="button" class="secondary" onclick="document.getElementById('logout').click()">Đăng xuất ↗</button>
+            </div>
+          </div>
+        </article>
+      </section>
 
       </div><footer>OMNIPUBLISH <span>Private by design · Your channels, your call</span></footer>
 

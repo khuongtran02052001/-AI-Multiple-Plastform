@@ -66,7 +66,9 @@ function changeView(view) {
 
   $('breadcrumb-view').textContent={dashboard:'Overview',compose:'Create post',history:'Posts',accounts:'Social accounts',calendar:'Calendar',analytics:'Analytics',developer:'Automations & API',settings:'Settings'}[view];
 
-  if(view==='history'||view==='calendar'||view==='dashboard'||view==='analytics') refreshPosts().catch(e=>notice(e.message,true)); if(view==='developer') renderApiKeys().catch(e=>notice(e.message,true));
+  if(view==='history'||view==='calendar'||view==='dashboard') refreshPosts().catch(e=>notice(e.message,true));
+  if(view==='analytics') { refreshPosts().then(() => renderAnalytics()).catch(e=>notice(e.message,true)); }
+  if(view==='settings') { renderSettings(); } if(view==='developer') renderApiKeys().catch(e=>notice(e.message,true));
 
 }
 
@@ -453,11 +455,13 @@ function renderCalendar() {
 }
 
 function renderSettings() {
-
-  const target=$('settings-info');if(!target)return;target.replaceChildren();
-
-  for(const [key,value] of [['Publishing database',state.config.database||'Loading'],['Publishing worker',state.config.worker?'Active':'Inactive'],['Video storage',`Private VPS storage · ${state.config.retention_days} day retention`],['Maximum video size',`${state.config.max_upload_mb||0} MB`]]){const row=el('div','environment-line');row.append(el('span','',key),el('strong','',value));target.append(row);}
-
+  const dbEl = document.getElementById('infra-db-val');
+  if (dbEl) dbEl.textContent = state.config?.database || 'Supabase / PostgreSQL';
+  const workerEl = document.getElementById('infra-worker-val');
+  if (workerEl) workerEl.textContent = state.config?.worker ? 'Hàng đợi nền đang chạy' : 'Tạm dừng';
+  const storageEl = document.getElementById('infra-storage-val');
+  if (storageEl) storageEl.textContent = `Tự dọn dẹp sau ${state.config?.retention_days || 7} ngày`;
+  if (typeof renderUserProfile === 'function') renderUserProfile();
 }
 
 function renderPosts() {
@@ -991,9 +995,9 @@ function renderUserProfile() {
   const rawName = state.user.name || (state.user.email ? state.user.email.split('@')[0] : 'bạn');
   const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
   const avatarChar = cleanName.charAt(0).toUpperCase() || 'U';
-  const isPro = (state.user.tier === 'pro' || state.user.tier === 'agency' || (state.user.posts_limit && state.user.posts_limit >= 999999));
-  const isAdmin = (state.user.role === 'admin');
-  const tierLabel = isPro ? 'Gói Pro (Không giới hạn)' : 'Gói Miễn phí (10 bài/tháng)';
+  const isAdmin = (state.user.role === 'admin' || state.user.email === 'admin@toomi.vn' || state.user.email === 'khuongtran227@gmail.com');
+  const isPro = (state.user.tier === 'pro' || state.user.tier === 'agency' || (state.user.posts_limit && state.user.posts_limit >= 999999) || isAdmin);
+  const tierLabel = isPro ? (isAdmin ? 'Gói Agency / Quản trị' : 'Gói Pro (Không giới hạn)') : 'Gói Miễn phí (10 bài/tháng)';
   const wsLabel = isPro ? 'Pro workspace' : 'Free workspace';
   const wsName = `${cleanName}'s Studio`;
 
@@ -1035,9 +1039,22 @@ function renderUserProfile() {
 
   // Update Settings Team row
   const sName = document.getElementById('settings-user-name');
-  if (sName) sName.textContent = `${cleanName} (${state.user.email || ''})`;
-  const sRole = document.getElementById('settings-user-role');
-  if (sRole) sRole.textContent = isAdmin ? 'Administrator · Toàn quyền quản trị' : `Khách hàng · ${tierLabel}`;
+  if (sName) sName.textContent = cleanName;
+  const sEmail = document.getElementById('settings-user-email');
+  if (sEmail) sEmail.textContent = state.user.email || '';
+  const sId = document.getElementById('settings-user-id');
+  if (sId) sId.textContent = `ID: ${state.user.id || 'usr_27e2530c-2ea'}`;
+
+  const sRoleBadge = document.getElementById('settings-role-badge');
+  if (sRoleBadge) {
+    sRoleBadge.textContent = isAdmin ? '👑 Super Admin' : 'Thành viên';
+    sRoleBadge.className = isAdmin ? 'badge-super-admin' : 'pill neutral';
+  }
+  const sPlanBadge = document.getElementById('settings-plan-badge');
+  if (sPlanBadge) {
+    sPlanBadge.textContent = isPro ? '💎 Gói Pro Không Giới Hạn' : 'Gói Miễn Phí (10 bài/tháng)';
+    sPlanBadge.className = isPro ? 'badge-tier-pro' : 'pill neutral';
+  }
 
   // Hide Topbar upgrade button if already Pro
   const topUp = document.getElementById('topbar-upgrade-btn');
@@ -1075,3 +1092,170 @@ function renderUserProfile() {
     `.trim();
   }
 }
+
+
+// --- ANIMATED DYNAMIC ANALYTICS ENGINE (Chart.js) ---
+let analyticsChartInstance = null;
+let currentAnalyticsDays = 7;
+
+function renderAnalytics(days = currentAnalyticsDays) {
+  currentAnalyticsDays = days;
+  const posts = state.posts || [];
+  const publishedPosts = posts.filter(p => p.status === 'submitted');
+  const queuedPosts = posts.filter(p => ['queued', 'posting'].includes(p.status));
+  const failedPosts = posts.filter(p => p.status === 'failed');
+
+  const publishedCount = publishedPosts.length;
+  const queuedCount = queuedPosts.length;
+  const successRate = (publishedCount + failedPosts.length) > 0 
+    ? Math.round((publishedCount / (publishedCount + failedPosts.length)) * 100) 
+    : 100;
+
+  if (document.getElementById('analytics-total-published')) {
+    document.getElementById('analytics-total-published').textContent = publishedCount;
+  }
+  if (document.getElementById('analytics-success-rate')) {
+    document.getElementById('analytics-success-rate').textContent = `${successRate}%`;
+  }
+  if (document.getElementById('analytics-in-queue')) {
+    document.getElementById('analytics-in-queue').textContent = queuedCount;
+  }
+  if (document.getElementById('analytics-active-channels')) {
+    document.getElementById('analytics-active-channels').textContent = state.accounts?.length || 0;
+  }
+
+  // Build daily timeline
+  const labels = [];
+  const publishedData = [];
+  const otherData = [];
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString('vi-VN', { month: 'numeric', day: 'numeric' }));
+
+    const pubForDay = publishedPosts.filter(p => {
+      const pDate = new Date((p.created_at || 0) * 1000).toISOString().slice(0, 10);
+      return pDate === dateStr;
+    }).length;
+
+    const otherForDay = posts.filter(p => {
+      if (p.status === 'submitted') return false;
+      const pDate = new Date((p.created_at || 0) * 1000).toISOString().slice(0, 10);
+      return pDate === dateStr;
+    }).length;
+
+    publishedData.push(pubForDay);
+    otherData.push(otherForDay);
+  }
+
+  // Update timeframe buttons
+  document.querySelectorAll('.analytics-tf-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+  });
+
+  const canvas = document.getElementById('analyticsChart');
+  if (!canvas || !window.Chart) return;
+
+  const ctx = canvas.getContext('2d');
+  if (analyticsChartInstance) {
+    analyticsChartInstance.destroy();
+  }
+
+  const gradPub = ctx.createLinearGradient(0, 0, 0, 260);
+  gradPub.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
+  gradPub.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+  const gradOther = ctx.createLinearGradient(0, 0, 0, 260);
+  gradOther.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
+  gradOther.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+  analyticsChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Video đã xuất bản',
+          data: publishedData,
+          borderColor: '#6366f1',
+          borderWidth: 3,
+          backgroundColor: gradPub,
+          fill: true,
+          tension: 0.38,
+          pointBackgroundColor: '#818cf8',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 4,
+          pointHoverRadius: 7
+        },
+        {
+          label: 'Đang xếp hàng / lỗi',
+          data: otherData,
+          borderColor: '#f59e0b',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          backgroundColor: gradOther,
+          fill: true,
+          tension: 0.38,
+          pointBackgroundColor: '#fbbf24',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 3,
+          pointHoverRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 900,
+        easing: 'easeOutQuart'
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0f172a',
+          titleColor: '#f8fafc',
+          bodyColor: '#cbd5e1',
+          borderColor: '#334155',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: true,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(ctx) {
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y} video`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#64748b', font: { size: 11, family: 'DM Sans' } }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: {
+            stepSize: 1,
+            color: '#64748b',
+            font: { size: 11, family: 'DM Sans' }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Timeframe selector clicks
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.analytics-tf-btn');
+  if (btn && btn.dataset.days) {
+    renderAnalytics(parseInt(btn.dataset.days));
+  }
+});

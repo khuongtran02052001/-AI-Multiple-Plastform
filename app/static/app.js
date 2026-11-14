@@ -261,32 +261,67 @@ function showPricingModal() {
 
 
 function renderAccounts() {
+  $('channel-picker').replaceChildren();
+  $('connected-list').replaceChildren();
+  $('no-accounts').hidden = state.accounts.length > 0;
+  $('account-count').textContent = `${state.accounts.length} connected`;
 
-  $('channel-picker').replaceChildren(); $('connected-list').replaceChildren();
+  for (const account of state.accounts) {
+    const option = el('label', 'channel-option');
+    option.dataset.provider = account.provider;
+    option.dataset.id = account.id;
 
-  $('no-accounts').hidden=state.accounts.length>0; $('account-count').textContent=`${state.accounts.length} connected`;
+    const checkbox = el('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = account.id;
 
-  for(const account of state.accounts) {
+    checkbox.addEventListener('change', () => {
+      option.classList.toggle('selected', checkbox.checked);
+      preview();
+      updatePublishingSettingsUI();
+    });
 
-    const option=el('label','channel-option'); const checkbox=el('input'); checkbox.type='checkbox';checkbox.value=account.id;checkbox.addEventListener('change',preview);
+    const copy = el('span', '', account.name);
+    copy.append(el('small', '', platformName(account.provider)));
+    option.append(checkbox, icon(account.provider), copy);
+    $('channel-picker').append(option);
 
-    const copy=el('span','',account.name);copy.append(el('small','',platformName(account.provider))); option.append(checkbox,icon(account.provider),copy);$('channel-picker').append(option);
-
-    const row=el('div','account-row');const detail=el('div');detail.append(el('strong','',account.name),el('small','',`${platformName(account.provider)} · ${account.external_id}`));
-
-const disconnect=el('button','text-button','Disconnect');disconnect.type='button';disconnect.onclick=async()=>{
-
- if(!confirm(`Disconnect ${account.name}? Queued posts for this channel will be stopped.`))return;
-
-      disconnect.disabled=true;try{await api(`/api/accounts/${account.id}/disconnect`,{method:'POST'});await load();notice('Đã xóa token của kênh khỏi công cụ.');}catch(e){notice(e.message,true);disconnect.disabled=false;}
-
-    };row.append(icon(account.provider),detail,disconnect);$('connected-list').append(row);
-
+    const row = el('div', 'account-row');
+    const detail = el('div');
+    detail.append(el('strong', '', account.name), el('small', '', `${platformName(account.provider)} · ${account.external_id}`));
+    const disconnect = el('button', 'text-button', 'Disconnect');
+    disconnect.type = 'button';
+    disconnect.onclick = async () => {
+      if (!confirm(`Disconnect ${account.name}? Queued posts for this channel will be stopped.`)) return;
+      disconnect.disabled = true;
+      try {
+        await api(`/api/accounts/${account.id}/disconnect`, { method: 'POST' });
+        await load();
+        notice('Đã xóa token của kênh khỏi công cụ.');
+      } catch (e) {
+        notice(e.message, true);
+        disconnect.disabled = false;
+      }
+    };
+    row.append(icon(account.provider), detail, disconnect);
+    $('connected-list').append(row);
   }
 
-  if(!state.accounts.length) $('connected-list').append(el('p','empty-hint','No accounts connected. Configure OAuth to enable account linking.'));
+  if (!state.accounts.length) $('connected-list').append(el('p', 'empty-hint', 'No accounts connected. Configure OAuth to enable account linking.'));
+
+  // Pre-check the first account (e.g. YouTube EchoTalesVN) if none are checked yet
+  const boxes = document.querySelectorAll('#channel-picker input[type="checkbox"]');
+  if (boxes.length > 0) {
+    const anyChecked = [...boxes].some(b => b.checked);
+    if (!anyChecked) {
+      boxes[0].checked = true;
+      boxes[0].closest('.channel-option')?.classList.add('selected');
+    }
+  }
 
   $('provider-list').replaceChildren();
+  preview();
+  updatePublishingSettingsUI();
 
   for(const provider of ['youtube','facebook','tiktok','instagram','linkedin','x','pinterest']) {
     const card = el('article', 'card provider-card');
@@ -382,7 +417,7 @@ const disconnect=el('button','text-button','Disconnect');disconnect.type='button
 
   renderDashboard();
 
-  preview();
+  preview(); updatePublishingSettingsUI();
 
 }
 
@@ -844,7 +879,7 @@ async function submit(action){
 
     scheduled_at:$('schedule').value?new Date($('schedule').value).toISOString():null})});
 
-    state.batch=crypto.randomUUID();state.media=null;$('post-form').reset();$('upload-info').hidden=true;$('video-preview').pause();$('video-preview').removeAttribute('src');$('video-preview').hidden=true;$('preview-placeholder').hidden=false;if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}preview();changeView('history');notice(action==='draft'?'Draft saved.':'Post added to the queue. Follow its progress below.');await refreshPosts();
+    state.batch=crypto.randomUUID();state.media=null;$('post-form').reset();$('upload-info').hidden=true;$('video-preview').pause();$('video-preview').removeAttribute('src');$('video-preview').hidden=true;$('preview-placeholder').hidden=false;if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}preview(); updatePublishingSettingsUI();changeView('history');notice(action==='draft'?'Draft saved.':'Post added to the queue. Follow its progress below.');await refreshPosts();
 
   }catch(e){notice(e.message,true);}finally{state.busy=false;$('queue-button').disabled=false;$('draft-button').disabled=false;}
 
@@ -996,7 +1031,7 @@ if (titleInputEl) {
     var newVal = oldVal.slice(0, start) + insert + oldVal.slice(end);
     this.value = newVal.slice(0, 100);
     this.selectionStart = this.selectionEnd = start + insert.length;
-    if (typeof preview === 'function') preview();
+    if (typeof preview === 'function') preview(); updatePublishingSettingsUI();
   });
 }
 
@@ -1504,7 +1539,65 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- Facebook Format and Publishing Settings UI helpers ---
+
+// --- Badges & Publishing Format Helpers ---
+function updateYouTubeBadge() {
+  const badge = document.getElementById('inline-yt-badge');
+  if (!badge) return;
+  const isShorts = document.getElementById('shorts')?.checked ?? true;
+  const priv = document.getElementById('privacy')?.value || 'private';
+  const privLabel = priv === 'public' ? 'Công khai' : priv === 'unlisted' ? 'Không công khai' : 'Riêng tư';
+  const fmtLabel = isShorts ? '📱 Shorts' : '🎬 Video 16:9';
+  badge.textContent = `${fmtLabel} · ${privLabel}`;
+}
+
+function updateFacebookBadge() {
+  const badge = document.getElementById('inline-fb-badge');
+  if (!badge) return;
+  const isReels = document.getElementById('fb_reels')?.checked ?? true;
+  const fmtLabel = isReels ? '📱 Reels' : '📰 Bảng tin Fanpage';
+  badge.textContent = `${fmtLabel} · Công khai`;
+}
+
+function setPublishFormat(isShorts, notifyUser) {
+  var box = document.getElementById('shorts');
+  var btnS = document.getElementById('fmt-shorts-btn');
+  var btnR = document.getElementById('fmt-regular-btn');
+  var tabYt = document.getElementById('preview-tab-youtube');
+  var pBox = document.getElementById('preview-placeholder');
+  var pVid = document.getElementById('video-preview');
+
+  if (box) box.checked = isShorts;
+  if (btnS && btnR) {
+    btnS.classList.toggle('active', !!isShorts);
+    btnR.classList.toggle('active', !isShorts);
+  }
+  if (tabYt) {
+    tabYt.textContent = isShorts ? 'YouTube Shorts' : 'YouTube Video (16:9)';
+  }
+  if (pBox) {
+    pBox.classList.toggle('is-shorts', !!isShorts);
+    pBox.classList.toggle('is-regular', !isShorts);
+  }
+  if (pVid) {
+    pVid.classList.toggle('is-shorts', !!isShorts);
+    pVid.classList.toggle('is-regular', !isShorts);
+  }
+  var previewTab = document.querySelector('.preview-tab.active');
+  if (previewTab && previewTab.dataset.preview === 'youtube') {
+    var pChan = document.getElementById('preview-channel');
+    if (pChan) pChan.textContent = isShorts ? 'YouTube Shorts preview' : 'YouTube Video preview (16:9)';
+  }
+  updateYouTubeBadge();
+  updatePublishingSettingsUI();
+  if (notifyUser) {
+    notice(isShorts 
+      ? 'Đã tự động chọn "YouTube Shorts" (video dọc ≤ 3 phút).' 
+      : 'Đã tự động chọn "Video thường / dài" (video ngang 16:9 hoặc > 3 phút).'
+    );
+  }
+}
+
 function setFacebookFormat(isReels) {
   var box = document.getElementById('fb_reels');
   var btnReels = document.getElementById('fb-fmt-reels-btn');
@@ -1518,6 +1611,8 @@ function setFacebookFormat(isReels) {
   if (tabFb) {
     tabFb.textContent = isReels ? 'Facebook Reels' : 'Facebook Video (Feed)';
   }
+  updateFacebookBadge();
+  updatePublishingSettingsUI();
 }
 
 function updatePublishingSettingsUI() {
@@ -1527,28 +1622,71 @@ function updatePublishingSettingsUI() {
   const ytAccounts = checkedAccounts.filter(a => a.provider === 'youtube');
   const fbAccounts = checkedAccounts.filter(a => a.provider === 'facebook');
 
-  const noHint = document.getElementById('settings-no-channel-alert');
-  const ytGroup = document.getElementById('settings-group-youtube');
-  const fbGroup = document.getElementById('settings-group-facebook');
+  const ytCard = document.getElementById('inline-settings-youtube');
+  const fbCard = document.getElementById('inline-settings-facebook');
+  const emptyHint = document.getElementById('inline-settings-empty-hint');
 
+  // If no channels selected at all
   if (checkedAccounts.length === 0) {
-    if (noHint) noHint.hidden = false;
-    if (ytGroup) ytGroup.hidden = true;
-    if (fbGroup) fbGroup.hidden = true;
+    if (ytCard) ytCard.hidden = true;
+    if (fbCard) fbCard.hidden = true;
+    if (emptyHint) emptyHint.hidden = false;
   } else {
-    if (noHint) noHint.hidden = true;
-    if (ytGroup) {
-      ytGroup.hidden = ytAccounts.length === 0;
-      const countEl = document.getElementById('settings-yt-channels-count');
-      if (countEl && ytAccounts.length > 0) {
-        countEl.textContent = `Áp dụng cho ${ytAccounts.map(a => a.name).join(', ')}`;
+    if (emptyHint) emptyHint.hidden = true;
+
+    // YouTube panel
+    if (ytCard) {
+      if (ytAccounts.length > 0) {
+        ytCard.hidden = false;
+        const nameEl = document.getElementById('inline-yt-channel-name');
+        if (nameEl) nameEl.textContent = `Áp dụng cho: ${ytAccounts.map(a => a.name).join(', ')}`;
+        updateYouTubeBadge();
+      } else {
+        ytCard.hidden = true;
       }
     }
-    if (fbGroup) {
-      fbGroup.hidden = fbAccounts.length === 0;
-      const countEl = document.getElementById('settings-fb-channels-count');
-      if (countEl && fbAccounts.length > 0) {
-        countEl.textContent = `Áp dụng cho ${fbAccounts.map(a => a.name).join(', ')}`;
+
+    // Facebook panel
+    if (fbCard) {
+      if (fbAccounts.length > 0) {
+        fbCard.hidden = false;
+        const nameEl = document.getElementById('inline-fb-channel-name');
+        if (nameEl) nameEl.textContent = `Áp dụng cho: ${fbAccounts.map(a => a.name).join(', ')}`;
+        updateFacebookBadge();
+      } else {
+        fbCard.hidden = true;
+      }
+    }
+  }
+
+  // Update selected highlight classes on channel-option pills
+  document.querySelectorAll('#channel-picker .channel-option').forEach(opt => {
+    const box = opt.querySelector('input[type="checkbox"]');
+    if (box) opt.classList.toggle('selected', box.checked);
+  });
+
+  // Update Selected channels summary box in the right sidebar
+  const summaryBox = document.getElementById('selected-summary-box');
+  if (summaryBox) {
+    summaryBox.replaceChildren();
+    if (!checkedAccounts.length) {
+      summaryBox.innerHTML = '<span class="subtle" style="font-size:11px;">Chưa chọn kênh nào. Tích chọn kênh ở Bước 1.</span>';
+    } else {
+      for (const a of checkedAccounts) {
+        const pill = document.createElement('div');
+        pill.className = `selected-summary-pill ${a.provider}`;
+        if (a.provider === 'youtube') {
+          const isShorts = document.getElementById('shorts')?.checked ?? true;
+          const priv = document.getElementById('privacy')?.value || 'private';
+          const privLabel = priv === 'public' ? 'Công khai' : priv === 'unlisted' ? 'Không công khai' : 'Riêng tư';
+          pill.innerHTML = `<span>▶ ${a.name}</span><small>${isShorts ? 'Shorts' : 'Video 16:9'} · ${privLabel}</small>`;
+        } else if (a.provider === 'facebook') {
+          const isReels = document.getElementById('fb_reels')?.checked ?? true;
+          pill.innerHTML = `<span>f ${a.name}</span><small>${isReels ? 'Reels' : 'Feed'}</small>`;
+        } else {
+          pill.innerHTML = `<span>● ${a.name}</span><small>${platformName(a.provider)}</small>`;
+        }
+        summaryBox.appendChild(pill);
       }
     }
   }
@@ -1564,7 +1702,18 @@ function updatePublishingSettingsUI() {
 }
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Bind YouTube format buttons & privacy
+  const btnShorts = document.getElementById('fmt-shorts-btn');
+  if (btnShorts) btnShorts.onclick = () => setPublishFormat(true);
+  const btnReg = document.getElementById('fmt-regular-btn');
+  if (btnReg) btnReg.onclick = () => setPublishFormat(false);
+  const privSel = document.getElementById('privacy');
+  if (privSel) privSel.onchange = () => { updateYouTubeBadge(); updatePublishingSettingsUI(); };
+  const kidsBox = document.getElementById('kids');
+  if (kidsBox) kidsBox.onchange = () => { updateYouTubeBadge(); updatePublishingSettingsUI(); };
+
   // Bind Facebook format buttons
   const btnFbReels = document.getElementById('fb-fmt-reels-btn');
   if (btnFbReels) btnFbReels.onclick = () => setFacebookFormat(true);
@@ -1592,3 +1741,8 @@ document.addEventListener('DOMContentLoaded', () => {
     statFilter.onchange = () => renderAnalyticsPostsTable(postSearch ? postSearch.value : '', statFilter.value);
   }
 });
+
+
+window.setPublishFormat = setPublishFormat;
+window.setFacebookFormat = setFacebookFormat;
+window.updatePublishingSettingsUI = updatePublishingSettingsUI;

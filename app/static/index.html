@@ -12,8 +12,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/style.css?v=20261114.expand3"><script src="/static/vendor/chart.umd.min.js?v=20261114" defer></script>
-  <script src="/static/app.js?v=20261114.expand3" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=20261114.v7"><script src="/static/vendor/chart.umd.min.js?v=20261114" defer></script>
+  <script src="/static/app.js?v=20261114.v7" defer></script>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
@@ -187,7 +187,112 @@
 
         </section>
 
-        <section id="compose-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">MAKE SOMETHING WORTH SHARING</span><h1>Create a post<span class="heading-dot">.</span></h1><p>One post, thoughtfully prepared for your channels.</p></div><span class="pill neutral">Secure publishing</span></div><form id="post-form"><div class="composer-layout"><div class="composer-main"><article class="card"><div class="card-title"><span class="step">01</span><h2>Chọn kênh &amp; Cài đặt xuất bản</h2><button type="button" data-view="accounts" class="text-button">Manage channels ↗</button></div><div id="channel-picker" class="channel-picker"></div><p id="no-accounts" class="empty-hint" hidden>No channels connected yet. Connect YouTube or a Facebook Page to get started.</p></article>
+        <section id="compose-view" class="view" hidden><div class="page-heading"><div><span class="eyebrow">MAKE SOMETHING WORTH SHARING</span><h1>Create a post<span class="heading-dot">.</span></h1><p>One post, thoughtfully prepared for your channels.</p></div><span class="pill neutral">Secure publishing</span></div><form id="post-form"><div class="composer-layout"><div class="composer-main"><article class="card"><div class="card-title"><span class="step">01</span><h2>Chọn kênh &amp; Cài đặt xuất bản</h2><button type="button" data-view="accounts" class="text-button">Manage channels ↗</button></div><div id="channel-picker" class="channel-picker"></div>
+            <p id="no-accounts" class="empty-hint" hidden>Chưa kết nối kênh nào. Vào Kênh mạng xã hội để kết nối.</p>
+
+            <!-- Inline Expandable Platform Settings with Slide-down Animation -->
+            <div id="channel-settings-container" class="channel-settings-container">
+            <div id="inline-settings-empty-hint" class="channel-hint-box" hidden>
+              <span>💡 Tích chọn ít nhất một kênh ở trên để hiển thị và tùy chỉnh cài đặt xuất bản.</span>
+            </div>
+              <!-- YouTube Expandable Panel -->
+              <div id="inline-settings-youtube" class="platform-expand-card youtube" hidden>
+                <div class="expand-header">
+                  <div class="expand-title">
+                    <span class="platform-icon youtube">▶</span>
+                    <div>
+                      <strong>Cài đặt xuất bản YouTube</strong>
+                      <small id="inline-yt-channel-name">Áp dụng cho kênh YouTube đã chọn</small>
+                    </div>
+                  </div>
+                  <span class="expand-badge" id="inline-yt-badge">📱 Shorts · Riêng tư</span>
+                </div>
+                <div class="expand-body">
+                  <div class="drawer-grid">
+                    <div class="drawer-field">
+                      <label for="privacy">Quyền riêng tư YouTube</label>
+                      <select id="privacy" class="channel-select">
+                        <option value="public">Công khai (Public)</option>
+                        <option value="unlisted">Không công khai (Unlisted)</option>
+                        <option value="private" selected>Riêng tư (Private)</option>
+                      </select>
+                    </div>
+
+                    <div class="drawer-field">
+                      <label>Định dạng xuất bản YouTube</label>
+                      <div class="format-toggle-group-inline">
+                        <button type="button" id="fmt-shorts-btn" class="format-btn active" title="Video dọc 9:16 hoặc vuông, tối đa 3 phút">
+                          <span class="format-icon">📱</span>
+                          <span class="format-meta">
+                            <strong>YouTube Shorts</strong>
+                            <small>Dọc 9:16 (≤ 3 phút)</small>
+                          </span>
+                        </button>
+                        <button type="button" id="fmt-regular-btn" class="format-btn" title="Video ngang 16:9 hoặc mọi tỷ lệ, không giới hạn">
+                          <span class="format-icon">🎬</span>
+                          <span class="format-meta">
+                            <strong>Video thường / dài</strong>
+                            <small>Ngang 16:9 (Chuẩn)</small>
+                          </span>
+                        </button>
+                      </div>
+                      <input id="shorts" type="checkbox" checked hidden>
+                    </div>
+                  </div>
+
+                  <label class="check-line" style="margin-top:14px;">
+                    <input id="kids" type="checkbox">
+                    <span>Dành cho trẻ em (Made for kids)<small>Khai báo đối tượng người xem theo quy định của YouTube</small></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Facebook Expandable Panel -->
+              <div id="inline-settings-facebook" class="platform-expand-card facebook" hidden>
+                <div class="expand-header">
+                  <div class="expand-title">
+                    <span class="platform-icon facebook">f</span>
+                    <div>
+                      <strong>Cài đặt xuất bản Facebook</strong>
+                      <small id="inline-fb-channel-name">Áp dụng cho Fanpage Facebook đã chọn</small>
+                    </div>
+                  </div>
+                  <span class="expand-badge" id="inline-fb-badge">📱 Reels · Công khai</span>
+                </div>
+                <div class="expand-body">
+                  <div class="drawer-grid">
+                    <div class="drawer-field">
+                      <label>Định dạng xuất bản Facebook</label>
+                      <div class="format-toggle-group-inline">
+                        <button type="button" id="fb-fmt-reels-btn" class="format-btn active" title="Đăng dưới dạng Facebook Reels (video ngắn dọc)">
+                          <span class="format-icon">📱</span>
+                          <span class="format-meta">
+                            <strong>Facebook Reels</strong>
+                            <small>Video ngắn nổi bật</small>
+                          </span>
+                        </button>
+                        <button type="button" id="fb-fmt-feed-btn" class="format-btn" title="Đăng dưới dạng Video bài viết trên Bảng tin của Trang">
+                          <span class="format-icon">📰</span>
+                          <span class="format-meta">
+                            <strong>Video Bảng tin</strong>
+                            <small>Bài đăng Fanpage</small>
+                          </span>
+                        </button>
+                      </div>
+                      <input id="fb_reels" type="checkbox" checked hidden>
+                    </div>
+
+                    <div class="drawer-field">
+                      <label>Quyền hiển thị Trang</label>
+                      <div class="fb-notice-pill">
+                        <span style="color:#60a5fa">● Công khai trên Fanpage</span>
+                        <small>Tự động xuất hiện trên dòng thời gian Trang để người theo dõi xem</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div></article>
 
           <article class="card"><div class="card-title"><span class="step">02</span><h2>Post details</h2></div><div class="field-heading"><label for="title">Post title</label><span id="title-count">0 / 100</span></div><input id="title" type="text" maxlength="100" required placeholder="Write a title that stops the scroll" autocomplete="off" spellcheck="false"><label for="description">Caption & description</label><textarea id="description" rows="5" maxlength="5000" placeholder="Tell the story behind your video..."></textarea><label for="tags">YouTube tags <span class="optional">optional</span></label><input id="tags" placeholder="creativity, behind the scenes, ideas"><p class="field-help">Separate each tag with a comma. Add hashtags to your caption.</p></article>
 

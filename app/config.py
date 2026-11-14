@@ -16,6 +16,8 @@ class Settings:
     meta_app_id: str = os.getenv('META_APP_ID', '')
     meta_app_secret: str = os.getenv('META_APP_SECRET', '')
     meta_api_version: str = os.getenv('META_API_VERSION', 'v23.0')
+    tiktok_client_key: str = os.getenv('TIKTOK_CLIENT_KEY', '')
+    tiktok_client_secret: str = os.getenv('TIKTOK_CLIENT_SECRET', '')
     max_upload_mb: int = int(os.getenv('MAX_UPLOAD_MB', '250'))
     max_storage_mb: int = int(os.getenv('MAX_STORAGE_MB', '5000'))
     retention_days: int = int(os.getenv('MEDIA_RETENTION_DAYS', '7'))

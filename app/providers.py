@@ -26,6 +26,8 @@ class Providers:
             return bool(self.s.google_client_id and self.s.google_client_secret)
         if provider == 'facebook':
             return bool(self.s.meta_app_id and self.s.meta_app_secret)
+        if provider == 'tiktok':
+            return bool(self.s.tiktok_client_key and self.s.tiktok_client_secret)
         return False
 
     def callback(self, provider):
@@ -44,6 +46,13 @@ class Providers:
                 'client_id': self.s.meta_app_id, 'redirect_uri': self.callback(provider),
                 'response_type': 'code', 'state': state,
                 'scope': 'pages_show_list,pages_read_engagement,pages_manage_posts'})
+        if provider == 'tiktok':
+            return 'https://www.tiktok.com/v2/auth/authorize/?' + urlencode({
+                'client_key': self.s.tiktok_client_key,
+                'scope': 'user.info.basic,video.upload,video.publish',
+                'response_type': 'code',
+                'redirect_uri': self.callback(provider),
+                'state': state})
         raise PublishError('Nền tảng không được hỗ trợ.')
 
     def request_json(self, method, url, *, mutation=False, allow_empty=False, **kwargs):
@@ -85,6 +94,32 @@ class Providers:
                 raise PublishError('Cần chọn đúng một kênh YouTube trong bước cấp quyền Google.')
             channel = items[0]
             return [{'external_id': channel['id'], 'name': channel['snippet']['title'], 'tokens': tokens}]
+        if provider == 'tiktok':
+            tokens, _ = self.request_json('POST', 'https://open.tiktokapis.com/v2/oauth/token/', data={
+                'client_key': self.s.tiktok_client_key,
+                'client_secret': self.s.tiktok_client_secret,
+                'code': code,
+                'grant_type': 'authorization_code',
+                'redirect_uri': self.callback(provider)})
+            data = tokens.get('data', tokens)
+            access_token = data.get('access_token')
+            if not access_token:
+                err_msg = tokens.get('error', {}).get('message', 'Không lấy được access token từ TikTok.')
+                raise PublishError(f'TikTok OAuth lỗi: {err_msg}')
+            user_info, _ = self.request_json('GET',
+                'https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url',
+                headers={'Authorization': f'Bearer {access_token}'})
+            user_data = user_info.get('data', {}).get('user', {})
+            external_id = user_data.get('open_id') or data.get('open_id')
+            display_name = user_data.get('display_name') or 'Tài khoản TikTok'
+            token_store = {
+                'access_token': access_token,
+                'refresh_token': data.get('refresh_token'),
+                'open_id': external_id,
+                'expires_at': time.time() + int(data.get('expires_in', 86400)),
+                'refresh_expires_at': time.time() + int(data.get('refresh_expires_in', 31536000))
+            }
+            return [{'external_id': external_id, 'name': display_name, 'tokens': token_store}]
         graph = f'https://graph.facebook.com/{self.s.meta_api_version}'
         token, _ = self.request_json('GET', f'{graph}/oauth/access_token', params={
             'client_id': self.s.meta_app_id, 'client_secret': self.s.meta_app_secret,
@@ -123,7 +158,70 @@ class Providers:
             'grant_type': 'refresh_token', 'refresh_token': tokens['refresh_token']})
         return {**tokens, **fresh, 'expires_at': time.time() + int(fresh.get('expires_in', 3600))}
 
+    def refresh_tiktok(self, tokens):
+        if tokens.get('expires_at', 0) > time.time() + 90:
+            return tokens
+        if not tokens.get('refresh_token'):
+            raise PublishError('Thiếu refresh token. Kết nối lại TikTok.')
+        fresh, _ = self.request_json('POST', 'https://open.tiktokapis.com/v2/oauth/token/', data={
+            'client_key': self.s.tiktok_client_key,
+            'client_secret': self.s.tiktok_client_secret,
+            'grant_type': 'refresh_token',
+            'refresh_token': tokens['refresh_token']
+        })
+        data = fresh.get('data', fresh)
+        return {
+            **tokens,
+            'access_token': data.get('access_token', tokens['access_token']),
+            'refresh_token': data.get('refresh_token', tokens.get('refresh_token')),
+            'expires_at': time.time() + int(data.get('expires_in', 86400))
+        }
+
     def publish(self, account, tokens, post, file):
+        if account['provider'] == 'tiktok':
+            if not file:
+                raise PublishError('TikTok yêu cầu video.')
+            tokens = self.refresh_tiktok(tokens)
+            tags_list = json.loads(post['tags']) if post.get('tags') else []
+            hashtags_str = ' '.join(f'#{t.lstrip("#")}' for t in tags_list)
+            full_title = f"{post['title']} {hashtags_str}".strip()[:150]
+            privacy_level = 'PUBLIC_TO_EVERYONE' if post['privacy'] == 'public' else 'SELF_ONLY'
+            init_payload = {
+                'post_info': {
+                    'title': full_title,
+                    'privacy_level': privacy_level,
+                    'disable_duet': False,
+                    'disable_stitch': False,
+                    'disable_comment': False
+                },
+                'source_info': {
+                    'source': 'FILE_UPLOAD',
+                    'video_size': file['size'],
+                    'chunk_size': file['size'],
+                    'total_chunk_count': 1
+                }
+            }
+            init_res, _ = self.request_json('POST',
+                'https://open.tiktokapis.com/v2/post/publish/video/init/',
+                headers={'Authorization': f'Bearer {tokens["access_token"]}',
+                         'Content-Type': 'application/json; charset=UTF-8'},
+                json=init_payload)
+            init_data = init_res.get('data', {})
+            publish_id = init_data.get('publish_id')
+            upload_url = init_data.get('upload_url')
+            if not upload_url or not publish_id:
+                err_msg = init_res.get('error', {}).get('message', 'Không tạo được phiên upload TikTok.')
+                raise PublishError(f'Lỗi khởi tạo upload TikTok: {err_msg}')
+
+            with Path(file['path']).open('rb') as stream:
+                self.client.put(upload_url, headers={
+                    'Content-Type': 'video/mp4',
+                    'Content-Length': str(file['size']),
+                    'Content-Range': f'bytes 0-{file["size"] - 1}/{file["size"]}'
+                }, content=stream)
+
+            return str(publish_id), f'https://www.tiktok.com/@{account["name"]}'
+
         if account['provider'] == 'youtube':
             if not file:
                 raise PublishError('YouTube yêu cầu video.')

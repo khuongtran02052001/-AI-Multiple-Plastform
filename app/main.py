@@ -1116,7 +1116,7 @@ def create_app(config=None, engine=None, providers=None):
         require_session(request)
 
         return {
-            'providers': {p: api.available(p) for p in ('youtube', 'facebook')},
+            'providers': {p: api.available(p) for p in ('youtube', 'facebook', 'tiktok')},
             'max_upload_mb': s.max_upload_mb,
             'retention_days': s.retention_days,
             'database': 'Supabase / PostgreSQL' if db.dialect.name == 'postgresql' else 'SQLite — chế độ cục bộ',
@@ -1680,10 +1680,16 @@ def create_app(config=None, engine=None, providers=None):
 
 
     @app.get('/')
-
     def index():
-
         return FileResponse(root / 'index.html')
+
+    @app.get('/privacy')
+    def privacy():
+        return FileResponse(root / 'privacy.html')
+
+    @app.get('/terms')
+    def terms():
+        return FileResponse(root / 'terms.html')
 
 
 

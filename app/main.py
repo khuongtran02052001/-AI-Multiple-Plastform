@@ -1691,6 +1691,16 @@ def create_app(config=None, engine=None, providers=None):
     def terms():
         return FileResponse(root / 'terms.html')
 
+    @app.api_route('/tiktok-developers-site-verification.txt', methods=['GET', 'HEAD'])
+    @app.api_route('/terms/tiktok-developers-site-verification.txt', methods=['GET', 'HEAD'])
+    @app.api_route('/privacy/tiktok-developers-site-verification.txt', methods=['GET', 'HEAD'])
+    def tiktok_verify_standard_txt():
+        return PlainTextResponse("tiktok-developers-site-verification=ILtUwicbpHO1FkOC7C6wG8e91q4esFO5")
+
+    @app.api_route('/tiktok-developers-site-verification.html', methods=['GET', 'HEAD'])
+    def tiktok_verify_standard_html():
+        return HTMLResponse("tiktok-developers-site-verification=ILtUwicbpHO1FkOC7C6wG8e91q4esFO5")
+
     @app.api_route('/tiktok-developers-site-verification={token}', methods=['GET', 'HEAD'])
     def tiktok_verify(token: str):
         return PlainTextResponse(f"tiktok-developers-site-verification={token}")

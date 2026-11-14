@@ -1683,11 +1683,11 @@ def create_app(config=None, engine=None, providers=None):
     def index():
         return FileResponse(root / 'index.html')
 
-    @app.get('/privacy')
+    @app.api_route('/privacy', methods=['GET', 'HEAD'])
     def privacy():
         return FileResponse(root / 'privacy.html')
 
-    @app.get('/terms')
+    @app.api_route('/terms', methods=['GET', 'HEAD'])
     def terms():
         return FileResponse(root / 'terms.html')
 

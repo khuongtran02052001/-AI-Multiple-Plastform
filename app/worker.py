@@ -180,9 +180,10 @@ def process_one_ingest(engine, settings, downloader=download_tiktok_video):
         now = time.time()
         with engine.begin() as c:
             post_id = new_id()
+            file['user_id'] = job.get('user_id')
             c.execute(media.insert().values(**file))
             c.execute(posts.insert().values(
-                id=post_id, batch_key=job['request_key'], account_id=job['account_id'],
+                id=post_id, user_id=job.get('user_id'), batch_key=job['request_key'], account_id=job['account_id'],
                 media_id=file['id'], title=title, description=description,
                 tags=json.dumps(source.get('tags', []), ensure_ascii=False), privacy=privacy, made_for_kids=job['made_for_kids'],
                 shorts=shorts,

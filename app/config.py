@@ -26,10 +26,6 @@ class Settings:
     tiktok_ingest_enabled: bool = os.getenv('TIKTOK_INGEST_ENABLED', 'false').lower() == 'true'
     telegram_bot_token: str = os.getenv('TELEGRAM_BOT_TOKEN', '')
     admin_telegram_chat_id: str = os.getenv('ADMIN_TELEGRAM_CHAT_ID', '5988211094')
-    bank_name: str = os.getenv('BANK_NAME', 'MBBank (Quân Đội)')
-    bank_account_no: str = os.getenv('BANK_ACCOUNT_NO', '0335888888')
-    bank_account_name: str = os.getenv('BANK_ACCOUNT_NAME', 'TOOMI VN')
-    pro_plan_price: int = int(os.getenv('PRO_PLAN_PRICE', '99000'))
 
     @property
     def secure(self):

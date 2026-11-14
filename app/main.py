@@ -1083,11 +1083,7 @@ def create_app(config=None, engine=None, providers=None):
             'retention_days': s.retention_days,
             'database': 'Supabase / PostgreSQL' if db.dialect.name == 'postgresql' else 'SQLite — chế độ cục bộ',
             'worker': s.worker_enabled,
-            'base_url': s.base_url,
-            'bank_name': getattr(s, 'bank_name', 'MBBank (Quân Đội)'),
-            'bank_account_no': getattr(s, 'bank_account_no', '0335888888'),
-            'bank_account_name': getattr(s, 'bank_account_name', 'TOOMI VN'),
-            'pro_plan_price': getattr(s, 'pro_plan_price', 99000)
+            'base_url': s.base_url
         }
 
 

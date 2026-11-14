@@ -702,18 +702,14 @@ def create_app(config=None, engine=None, providers=None):
 
             u = c.execute(select(users).where(users.c.id == user_id)).mappings().first()
 
+        is_admin = session.get('role') == 'admin' or user_id == 'usr_owner_default' or (u and u['email'] == 'admin@toomi.vn')
         user_info = {
-
             'id': user_id,
-
             'email': u['email'] if u else 'admin@toomi.vn',
-
             'name': u['name'] if u else 'Workspace Admin',
-
-            'tier': u['tier'] if u else 'agency',
-
+            'tier': u['tier'] if u else ('pro' if is_admin else 'free'),
+            'role': 'admin' if is_admin else 'user',
             'posts_limit': u['posts_limit'] if u else 999999
-
         }
 
         return {'csrf': session['csrf'], 'user': user_info}
@@ -765,11 +761,14 @@ def create_app(config=None, engine=None, providers=None):
         target = match.group(1).lower()
 
         with db.connect() as c:
-
             u = c.execute(select(users).where(
-
-                or_(users.c.id == target, users.c.email == target, users.c.id == f'usr_{target}')
-
+                or_(
+                    users.c.id == target,
+                    users.c.id == f'usr_{target}',
+                    users.c.email == target,
+                    users.c.email.ilike(f'{target}@%'),
+                    users.c.id.ilike(f'%{target}%')
+                )
             )).mappings().first()
 
 
@@ -1078,13 +1077,18 @@ def create_app(config=None, engine=None, providers=None):
 
         require_session(request)
 
-        return {'providers': {p: api.available(p) for p in ('youtube', 'facebook')},
-
-                'max_upload_mb': s.max_upload_mb, 'retention_days': s.retention_days,
-
-                'database': 'Supabase / PostgreSQL' if db.dialect.name == 'postgresql' else 'SQLite — chế độ cục bộ',
-
-                'worker': s.worker_enabled, 'base_url': s.base_url}
+        return {
+            'providers': {p: api.available(p) for p in ('youtube', 'facebook')},
+            'max_upload_mb': s.max_upload_mb,
+            'retention_days': s.retention_days,
+            'database': 'Supabase / PostgreSQL' if db.dialect.name == 'postgresql' else 'SQLite — chế độ cục bộ',
+            'worker': s.worker_enabled,
+            'base_url': s.base_url,
+            'bank_name': getattr(s, 'bank_name', 'MBBank (Quân Đội)'),
+            'bank_account_no': getattr(s, 'bank_account_no', '0335888888'),
+            'bank_account_name': getattr(s, 'bank_account_name', 'TOOMI VN'),
+            'pro_plan_price': getattr(s, 'pro_plan_price', 99000)
+        }
 
 
 

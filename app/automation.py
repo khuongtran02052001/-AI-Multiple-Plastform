@@ -15,16 +15,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update, or_, and_
 from sqlalchemy.exc import IntegrityError
 
-from app.db import accounts, ingests, posts, new_id
+from app.db import accounts, ingests, posts, users, new_id
 from app.tiktok_ingest import validate_tiktok_url, DownloadError
+from app.quota import validate_and_consume_quota, get_user_quota
 
 
 class TikTokSubmission(BaseModel):
     request_key: str = Field(min_length=16, max_length=100)
     telegram_chat_id: str = Field(min_length=1, max_length=32)
+    telegram_message_id: str | None = Field(default=None, max_length=32)
     source_url: str = Field(min_length=20, max_length=1000)
     title: str = Field(default='', max_length=100)
     description: str = Field(default='', max_length=5000)
+    privacy: Literal['private', 'unlisted', 'public'] = 'private'
+    shorts_mode: Literal['auto', 'short', 'video'] = 'auto'
     scheduled_at: datetime | None = None
     made_for_kids: bool
     rights_confirmed: Literal[True]
@@ -39,6 +43,35 @@ def register_automation(app, engine, settings):
             request.headers.get('Authorization', ''), expected
         ):
             raise HTTPException(401, 'Thông tin xác thực dịch vụ không hợp lệ.')
+
+    def resolve_automation_user(telegram_chat_id: str) -> str:
+        """Resolve or provision user account for this telegram chat id."""
+        # Check against configured admin telegram chat id
+        admin_chat = getattr(settings, 'admin_telegram_chat_id', '5988211094')
+        if telegram_chat_id and str(telegram_chat_id) == str(admin_chat):
+            return 'usr_owner_default'
+
+        target_id = f'usr_tg_{telegram_chat_id}'
+        with engine.connect() as c:
+            existing = c.execute(select(users.c.id).where(users.c.id == target_id)).first()
+            if existing:
+                return existing[0]
+
+        # Auto-provision new Free customer for Telegram user
+        now = time.time()
+        with engine.begin() as c:
+            c.execute(users.insert().values(
+                id=target_id,
+                email=f'tg_{telegram_chat_id}@telegram.toomi.vn',
+                password_hash='telegram',
+                name=f'Telegram User {telegram_chat_id}',
+                tier='free',
+                status='active',
+                posts_limit=10,
+                created_at=now,
+                updated_at=now
+            ))
+        return target_id
 
     def view(job_id):
         with engine.connect() as c:
@@ -59,6 +92,12 @@ def register_automation(app, engine, settings):
             'error': (post['error'] if post else job['error']),
             'terminal': status in ('submitted', 'failed', 'unknown', 'cancelled'),
         }
+
+    @app.get('/internal/v1/quota')
+    def get_automation_quota(chat_id: str, request: Request):
+        authorize(request)
+        user_id = resolve_automation_user(chat_id)
+        return get_user_quota(engine, user_id)
 
     @app.get('/internal/v1/notifications')
     def pending_notifications(request: Request):
@@ -130,7 +169,13 @@ def register_automation(app, engine, settings):
         if existing:
             if existing['source_url'] != source_url or existing['account_id'] != account.id:
                 raise HTTPException(409, 'Khóa yêu cầu đã được dùng cho nội dung khác.')
-            return {**view(existing['id']), 'deduplicated': True}
+            return {**view(existing['id']), 'ok': True, 'deduplicated': True}
+
+        # 1. Resolve user
+        user_id = resolve_automation_user(payload.telegram_chat_id)
+
+        # 2. Enforce quota: 10 posts/month limit for Free tier
+        quota = validate_and_consume_quota(engine, user_id, count=1)
 
         job_id = new_id()
         now = time.time()
@@ -138,10 +183,15 @@ def register_automation(app, engine, settings):
         try:
             with engine.begin() as c:
                 c.execute(ingests.insert().values(
-                    id=job_id, request_key=payload.request_key,
+                    id=job_id,
+                    user_id=user_id,
+                    request_key=payload.request_key,
                     telegram_chat_id=payload.telegram_chat_id,
+                    telegram_message_id=payload.telegram_message_id,
                     source_url=source_url, account_id=account.id,
                     title=title, description=payload.description,
+                    privacy=payload.privacy,
+                    shorts_mode=payload.shorts_mode,
                     made_for_kids=payload.made_for_kids,
                     status='pending', scheduled_at=scheduled,
                     created_at=now, updated_at=now))
@@ -152,10 +202,10 @@ def register_automation(app, engine, settings):
                                        ingests.c.account_id).where(
                     ingests.c.request_key == payload.request_key)).mappings().first()
             if old and old['source_url'] == source_url and old['account_id'] == account.id:
-                return {**view(old['id']), 'deduplicated': True}
+                return {**view(old['id']), 'ok': True, 'quota': quota, 'deduplicated': True}
             raise HTTPException(409, 'Khóa yêu cầu bị trùng.')
 
-        return {**view(job_id), 'deduplicated': False}
+        return {**view(job_id), 'ok': True, 'quota': quota, 'deduplicated': False}
 
     @app.get('/internal/v1/tiktok/{job_id}')
     def get_tiktok_status(job_id: str, request: Request):

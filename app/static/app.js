@@ -227,23 +227,33 @@ async function renderApiKeys() {
 
 
 function showPricingModal() {
-
   const modal = $('modal-pricing');
-
   if (!modal) return;
 
-  const userIdent = (state.user?.email || state.user?.id || 'DEMO').split('@')[0].toUpperCase();
-
+  const user = state.user;
+  const userIdent = (user?.email ? user.email.split('@')[0] : (user?.id ? user.id.replace('usr_', '').slice(0, 8) : 'PRO')).toUpperCase();
   const syntax = `OP ${userIdent}`;
-
   $('transfer-syntax').textContent = syntax;
 
-  const qrUrl = `https://img.vietqr.io/image/MB-0335888888-compact2.png?amount=99000&addInfo=${encodeURIComponent(syntax)}&accountName=TOOMI%20VN`;
+  const bankName = state.config?.bank_name || 'MBBank (Quân Đội)';
+  const accountNo = state.config?.bank_account_no || '0335888888';
+  const accountName = state.config?.bank_account_name || 'TOOMI VN';
+  const price = state.config?.pro_plan_price || 99000;
+  const priceFormatted = Number(price).toLocaleString('vi-VN') + 'đ';
 
+  const bNameEl = document.getElementById('pricing-bank-name');
+  if (bNameEl) bNameEl.textContent = bankName;
+  const bAccEl = document.getElementById('pricing-bank-account');
+  if (bAccEl) bAccEl.textContent = accountNo;
+  const bOwnerEl = document.getElementById('pricing-bank-owner');
+  if (bOwnerEl) bOwnerEl.textContent = accountName;
+  const bAmountEl = document.getElementById('pricing-amount');
+  if (bAmountEl) bAmountEl.textContent = priceFormatted;
+
+  const qrUrl = `https://img.vietqr.io/image/MB-${accountNo}-compact2.png?amount=${price}&addInfo=${encodeURIComponent(syntax)}&accountName=${encodeURIComponent(accountName)}`;
   $('pricing-qr-img').src = qrUrl;
 
   modal.hidden = false;
-
 }
 
 
@@ -522,13 +532,7 @@ async function enter(userProfile){
 
   $('workspace').hidden=false;
 
-  if (state.user) {
-
-    const avatar = (state.user.name || state.user.email || 'K')[0].toUpperCase();
-
-    document.querySelectorAll('.admin-avatar').forEach(a => a.textContent = avatar);
-
-  }
+  renderUserProfile();
 
 const connection=new URLSearchParams(location.search).get('connection');if(connection){notice(connection==='success'?'Account connected.':'Authorization cancelled.');history.replaceState({},'',location.pathname);}
 
@@ -762,7 +766,7 @@ $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'});logge
 
 document.querySelectorAll('[data-preview]').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('[data-preview]').forEach(item=>item.classList.toggle('active',item===tab));const platform=tab.dataset.preview;$('preview-channel').textContent=platform==='youtube'?($('shorts')?.checked?'YouTube Shorts preview':'YouTube Video preview (16:9)'):platform==='tiktok'?'TikTok preview · channel connection unavailable':'Facebook Reels preview';}));
 
-$('ingest-button').addEventListener('click',()=>{const input=$('ingest-url');if(!input.reportValidity()||!input.value)return;notice('Link ingestion is not configured for this deployment. Upload an MP4 directly to continue.',true);});
+$('ingest-button').addEventListener('click',()=>{const input=$('ingest-url');if(!input.reportValidity()||!input.value)return;notice('💡 Để tự động xuất bản từ link TikTok sang YouTube không cần tải video về máy, hãy gửi link vào Telegram Bot hoặc n8n Workflow của bạn (Xem tab Automations & API)!');});
 
 $('title').oninput=preview;$('description').oninput=preview;$('status-filter').onchange=renderPosts;$('refresh-posts').onclick=()=>refreshPosts().catch(e=>notice(e.message,true));
 
@@ -978,4 +982,96 @@ if (descInputEl) {
   descInputEl.addEventListener('paste', function() {
     if (typeof preview === 'function') setTimeout(preview, 25);
   });
+}
+
+
+// --- DYNAMIC USER PROFILE & DASHBOARD LOGIC ---
+function renderUserProfile() {
+  if (!state.user) return;
+  const rawName = state.user.name || (state.user.email ? state.user.email.split('@')[0] : 'bạn');
+  const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  const avatarChar = cleanName.charAt(0).toUpperCase() || 'U';
+  const isPro = (state.user.tier === 'pro' || state.user.tier === 'agency' || (state.user.posts_limit && state.user.posts_limit >= 999999));
+  const isAdmin = (state.user.role === 'admin');
+  const tierLabel = isPro ? 'Gói Pro (Không giới hạn)' : 'Gói Miễn phí (10 bài/tháng)';
+  const wsLabel = isPro ? 'Pro workspace' : 'Free workspace';
+  const wsName = `${cleanName}'s Studio`;
+
+  // Update avatars
+  document.querySelectorAll('.admin-avatar').forEach(a => a.textContent = avatarChar);
+  const wsAvatar = document.getElementById('workspace-avatar');
+  if (wsAvatar) wsAvatar.textContent = avatarChar;
+
+  // Update greeting and date
+  const now = new Date();
+  const hours = now.getHours();
+  let timeGreeting = 'Good morning';
+  if (hours >= 12 && hours < 18) timeGreeting = 'Good afternoon';
+  else if (hours >= 18) timeGreeting = 'Good evening';
+
+  const gTime = document.getElementById('dashboard-greeting-time');
+  if (gTime) gTime.textContent = timeGreeting;
+  const gName = document.getElementById('dashboard-user-name');
+  if (gName) gName.textContent = cleanName;
+
+  const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+  const dateStr = now.toLocaleDateString('en-US', dateOptions).toUpperCase();
+  const dDate = document.getElementById('dashboard-date');
+  if (dDate) dDate.textContent = dateStr;
+
+  // Update Workspace Name & Tier
+  const wsNameEl = document.getElementById('workspace-name');
+  if (wsNameEl) wsNameEl.textContent = wsName;
+  const wsTierEl = document.getElementById('workspace-tier');
+  if (wsTierEl) wsTierEl.textContent = wsLabel;
+  const topCrumbEl = document.getElementById('topbar-workspace-name');
+  if (topCrumbEl) topCrumbEl.textContent = wsName;
+
+  // Update Sidebar profile row
+  const pName = document.getElementById('profile-name');
+  if (pName) pName.textContent = cleanName;
+  const pPlan = document.getElementById('profile-plan');
+  if (pPlan) pPlan.textContent = tierLabel;
+
+  // Update Settings Team row
+  const sName = document.getElementById('settings-user-name');
+  if (sName) sName.textContent = `${cleanName} (${state.user.email || ''})`;
+  const sRole = document.getElementById('settings-user-role');
+  if (sRole) sRole.textContent = isAdmin ? 'Administrator · Toàn quyền quản trị' : `Khách hàng · ${tierLabel}`;
+
+  // Hide Topbar upgrade button if already Pro
+  const topUp = document.getElementById('topbar-upgrade-btn');
+  if (topUp) topUp.hidden = isPro;
+
+  // Dynamic n8n workflow button: only visible to Admin
+  const n8nBtn = document.getElementById('btn-open-n8n');
+  if (n8nBtn) {
+    if (isAdmin) {
+      n8nBtn.hidden = false;
+      n8nBtn.textContent = 'Mở Workflow n8n (Admin) ↗';
+      n8nBtn.onclick = () => window.open('https://n8n.toomi.vn/workflow/rg3KCmFJycBM7HaK', '_blank');
+    } else {
+      n8nBtn.hidden = true;
+    }
+  }
+
+  // Update cURL sample in Developer view with dynamic host and user api key if available
+  const sampleHost = window.location.origin;
+  const curlBox = document.querySelector('.apikey-section + .card .curl-box');
+  if (curlBox) {
+    const activeKey = state.apiKeys && state.apiKeys.length > 0 ? (state.apiKeys[0].prefix + '...') : '<MÃ_API_KEY_CỦA_BẠN>';
+    curlBox.innerHTML = `
+<b>Method:</b> POST<br>
+<b>URL:</b> ${sampleHost}/api/v1/publish<br>
+<b>Headers:</b><br>
+&nbsp;&nbsp;Authorization: Bearer ${activeKey}<br>
+&nbsp;&nbsp;Content-Type: application/json<br>
+<b>Body (JSON):</b><br>
+{<br>
+&nbsp;&nbsp;"source_url": "https://www.tiktok.com/@khan.linh6/video/7699443199626071317",<br>
+&nbsp;&nbsp;"title": "Video từ n8n (tùy chọn)",<br>
+&nbsp;&nbsp;"description": "#Shorts"<br>
+}
+    `.trim();
+  }
 }
